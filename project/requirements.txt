@@ -10,3 +10,4 @@ scikit-learn
 nibabel
 nilearn
 ipython
+seaborn
