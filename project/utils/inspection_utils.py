@@ -17,5 +17,4 @@ def inspect(data, key="path", level=0, verbose=False):
 def load_and_inspect_h5(path, verbose=False):
     with h5py.File(path, "r") as f:
         inspect(f, path, verbose=verbose)
-
-    return f
+    return 
