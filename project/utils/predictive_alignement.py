@@ -6,29 +6,65 @@ from sklearn.metrics import r2_score, mean_squared_error
 
 class ModelBrainDataset():
     """
-    Dataset class for handling pre-separated model features and neural responses.
+    Dataset class for handling model-based encoding tasks.
+    Loads model activations for given stimuli and pairs them with neural responses.
     Assumes train and test sets are already separated.
-    Supports further splitting train data into train/validation for hyperparameter selection.
     """
-    def __init__(self, X_train, y_train, X_test, y_test):
+    def __init__(self, y_train, y_test, stimuli_train, stimuli_test, model_name, 
+                 activations_path_template="PATH_TO_ACTIVATIONS/{model_name}/{stimuli_id}.npy"):
         """
-        Initializes the dataset with pre-separated train and test data.
+        Initializes the dataset by loading model activations for provided stimuli.
 
         Parameters:
-        X_train (array-like): Training feature vectors (n_train_samples, n_features).
         y_train (array-like): Training neural response values (n_train_samples, n_units).
-        X_test (array-like): Test feature vectors (n_test_samples, n_features).
         y_test (array-like): Test neural response values (n_test_samples, n_units).
+        stimuli_train (array-like): Stimuli identifiers/indices for training (n_train_samples,).
+        stimuli_test (array-like): Stimuli identifiers/indices for test (n_test_samples,).
+        model_name (str): Name of the model (used to locate activations).
+        activations_path_template (str): Template path for loading activations.
+                                         Placeholders: {model_name}, {stimuli_id}.
+                                         Default: "PATH_TO_ACTIVATIONS/{model_name}/{stimuli_id}.npy"
         """
-        self.X_train = X_train
         self.y_train = y_train
-        self.X_test = X_test
         self.y_test = y_test
+        self.stimuli_train = stimuli_train
+        self.stimuli_test = stimuli_test
+        self.model_name = model_name
+        self.activations_path_template = activations_path_template
+        
+        # Load activations
+        self.X_train = self._load_activations(stimuli_train, model_name, activations_path_template)
+        self.X_test = self._load_activations(stimuli_test, model_name, activations_path_template)
         
         self.X_val = None
         self.y_val = None
         self.X_train_split = None
         self.y_train_split = None
+
+    def _load_activations(self, stimuli_ids, model_name, path_template):
+        """
+        Loads model activations for the given stimuli.
+
+        Parameters:
+        stimuli_ids (array-like): Stimuli identifiers/indices.
+        model_name (str): Name of the model.
+        path_template (str): Template path for loading activations.
+
+        Returns:
+        array-like: Stacked activations (n_samples, n_features).
+        """
+        activations_list = []
+        for stim_id in stimuli_ids:
+            # Format the path with model_name and stimuli_id
+            path = path_template.format(model_name=model_name, stimuli_id=stim_id)
+            
+            # Load activation (placeholder - adjust based on your file format)
+            activation = np.load(path)
+            activations_list.append(activation)
+        
+        # Stack all activations
+        X = np.vstack(activations_list)
+        return X
 
     def get_data(self):
         """
