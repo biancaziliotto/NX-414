@@ -6,84 +6,74 @@ from sklearn.metrics import r2_score, mean_squared_error
 
 class ModelBrainDataset():
     """
-    Dataset class for handling model features and neural responses.
-    Supports train/test/validation splits and cross-validation.
-    Allows for different models and different neural datasets to be handled.
+    Dataset class for handling pre-separated model features and neural responses.
+    Assumes train and test sets are already separated.
+    Supports further splitting train data into train/validation for hyperparameter selection.
     """
-    def __init__(self, model_features, neural_responses):
+    def __init__(self, X_train, y_train, X_test, y_test):
         """
-        Initializes the dataset with model features and neural responses.
+        Initializes the dataset with pre-separated train and test data.
 
         Parameters:
-        model_features (array-like): Model feature vectors (n_samples, n_features).
-        neural_responses (array-like): Neural response values (n_samples, n_uni).
+        X_train (array-like): Training feature vectors (n_train_samples, n_features).
+        y_train (array-like): Training neural response values (n_train_samples, n_units).
+        X_test (array-like): Test feature vectors (n_test_samples, n_features).
+        y_test (array-like): Test neural response values (n_test_samples, n_units).
         """
-        self.model_features = model_features
-        self.neural_responses = neural_responses
-
-        self.X_train = None
-        self.X_test = None
+        self.X_train = X_train
+        self.y_train = y_train
+        self.X_test = X_test
+        self.y_test = y_test
+        
         self.X_val = None
-
-        self.y_train = None
-        self.y_test = None
         self.y_val = None
+        self.X_train_split = None
+        self.y_train_split = None
 
     def get_data(self):
         """
-        Returns the model features and neural responses.
+        Returns the training and test data.
 
         Returns:
-        tuple: (model_features, neural_responses)
+        tuple: (X_train, y_train, X_test, y_test)
         """
-        return self.model_features, self.neural_responses
+        return self.X_train, self.y_train, self.X_test, self.y_test
     
-    def split_data(self, test_size=0.2, val_size=0.1, random_state=42):
+    def split_train_val(self, val_size=0.2, random_state=42):
         """
-        Splits data into train, validation, and test sets.
+        Splits the training data into train and validation sets.
 
         Parameters:
-        test_size (float): Proportion of data for test set.
-        val_size (float): Proportion of data for validation set.
+        val_size (float): Proportion of training data for validation set.
         random_state (int): Random seed for reproducibility.
         """
-        # Split into train+val and test
-        X_temp, self.X_test, y_temp, self.y_test = train_test_split(
-            self.model_features, self.neural_responses,
-            test_size=test_size, random_state=random_state
-        )
-        
-        # Split train+val into train and val
-        val_size_adjusted = val_size / (1 - test_size)
-        self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-            X_temp, y_temp,
-            test_size=val_size_adjusted, random_state=random_state
+        self.X_train_split, self.X_val, self.y_train_split, self.y_val = train_test_split(
+            self.X_train, self.y_train,
+            test_size=val_size, random_state=random_state
         )
     
-    def get_splits(self):
+    def get_train_val_splits(self):
         """
-        Returns the train/val/test splits.
+        Returns the train/val splits (after calling split_train_val).
 
         Returns:
-        dict: Dictionary with 'X_train', 'X_val', 'X_test', 'y_train', 'y_val', 'y_test'.
+        dict: Dictionary with 'X_train', 'X_val', 'y_train', 'y_val'.
         """
         return {
-            'X_train': self.X_train,
+            'X_train': self.X_train_split,
             'X_val': self.X_val,
-            'X_test': self.X_test,
-            'y_train': self.y_train,
-            'y_val': self.y_val,
-            'y_test': self.y_test
+            'y_train': self.y_train_split,
+            'y_val': self.y_val
         }
     
     def __len__(self):
         """
-        Returns the number of samples in the dataset.
+        Returns the number of training samples in the dataset.
 
         Returns:
-        int: Number of samples.
+        int: Number of training samples.
         """
-        return len(self.model_features)
+        return len(self.X_train)
 
 class SGDEncoder():
     """
