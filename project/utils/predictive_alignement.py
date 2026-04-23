@@ -20,9 +20,7 @@ class ModelBrainDataset():
         stimuli_train (array-like): Stimuli identifiers/indices for training (n_train_samples,).
         stimuli_test (array-like): Stimuli identifiers/indices for test (n_test_samples,).
         model_name (str): Name of the model (used to locate activations).
-        activations_path_template (str): Template path for loading activations.
-                                         Placeholders: {model_name}, {stimuli_id}.
-                                         Default: "PATH_TO_ACTIVATIONS/{model_name}/{stimuli_id}.npy"
+        activations_path (str): Path for loading activations."
         """
         self.y_train = y_train
         self.y_test = y_test
@@ -59,6 +57,7 @@ class ModelBrainDataset():
         activations_list = [activations_file[stimuli_id] for stimuli_id in stimuli_ids]
         # Stack all activations
         X = np.vstack(activations_list)
+        print(X.shape)
         return X
 
     def get_data(self):
