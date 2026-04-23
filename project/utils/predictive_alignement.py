@@ -53,8 +53,15 @@ class ModelBrainDataset():
         """
          
         activations_file = h5py.File(self.activations_path, "r")
+        layers = list(activations_file["features"].keys())
+        
+        activation_indexes = list(activations_file["ids"])
+        data_indexes = [activation_indexes.index(stimulus_id) for stimulus_id in stimuli_ids]      
 
-        activations_list = [activations_file[stimuli_id] for stimuli_id in stimuli_ids]
+        layer_act = activations_file["features"][layers[0]]
+        print(len(activation_indexes))
+        activations_list = [layer_act[data_idx, :] for data_idx in data_indexes]
+        
         # Stack all activations
         X = np.vstack(activations_list)
         print(X.shape)
