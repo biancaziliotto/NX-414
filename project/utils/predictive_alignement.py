@@ -1,8 +1,8 @@
 import numpy as np
-from sklearn.linear_model import Ridge, SGDRegressor
-from sklearn.model_selection import cross_val_score, KFold, train_test_split
+from sklearn.linear_model import SGDRegressor
+from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import r2_score, mean_squared_error
+import h5py
 
 class ModelBrainDataset():
     """
@@ -10,8 +10,7 @@ class ModelBrainDataset():
     Loads model activations for given stimuli and pairs them with neural responses.
     Assumes train and test sets are already separated.
     """
-    def __init__(self, y_train, y_test, stimuli_train, stimuli_test, model_name, 
-                 activations_path_template="PATH_TO_ACTIVATIONS/{model_name}/{stimuli_id}.npy"):
+    def __init__(self, y_train, y_test, stimuli_train, stimuli_test, model_name, dataset_name):
         """
         Initializes the dataset by loading model activations for provided stimuli.
 
@@ -30,20 +29,21 @@ class ModelBrainDataset():
         self.stimuli_train = stimuli_train
         self.stimuli_test = stimuli_test
         self.model_name = model_name
-        self.activations_path_template = activations_path_template
+        self.dataset_name = dataset_name
+        self.activations_path = f"/shared/NX-414/extracted_features/{model_name}/{dataset_name}.h5"
         
         # Load activations
-        self.X_train = self._load_activations(stimuli_train, model_name, activations_path_template)
-        self.X_test = self._load_activations(stimuli_test, model_name, activations_path_template)
+        self.X_train = self._load_activations(stimuli_train)
+        self.X_test = self._load_activations(stimuli_test)
         
         self.X_val = None
         self.y_val = None
         self.X_train_split = None
         self.y_train_split = None
 
-    def _load_activations(self, stimuli_ids, model_name, path_template):
+    def _load_activations(self, stimuli_ids):
         """
-        Loads model activations for the given stimuli.
+        Loads model activations for the given stimuli (parallel).
 
         Parameters:
         stimuli_ids (array-like): Stimuli identifiers/indices.
@@ -53,15 +53,10 @@ class ModelBrainDataset():
         Returns:
         array-like: Stacked activations (n_samples, n_features).
         """
-        activations_list = []
-        for stim_id in stimuli_ids:
-            # Format the path with model_name and stimuli_id
-            path = path_template.format(model_name=model_name, stimuli_id=stim_id)
-            
-            # Load activation (placeholder - adjust based on your file format)
-            activation = np.load(path)
-            activations_list.append(activation)
-        
+         
+        activations_file = h5py.File(self.activations_path, "r")
+
+        activations_list = [activations_file[stimuli_id] for stimuli_id in stimuli_ids]
         # Stack all activations
         X = np.vstack(activations_list)
         return X
