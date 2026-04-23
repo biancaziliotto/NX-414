@@ -1,5 +1,10 @@
 import numpy as np
 from typing import Literal
+import h5py
+import matplotlib.pyplot as plt
+import pandas as pd
+import re
+
 class RepresentationalSimilarityAnalysis:
     """
     Representational Similarity Analysis (RSA).
@@ -242,7 +247,7 @@ def compare_models_and_targets(
         {model_name: {layer_name: np.ndarray (n_stimuli, n_features)}}
     target_responses : dict
         {target_name: np.ndarray (n_stimuli, ...)}.
-        Targets can be ROIs, subjects, or EEG time slices — anything with
+        Targets can be ROIs, subjects, or EEG time slices, anything with
         a matching first axis.
 
     Returns
@@ -270,8 +275,6 @@ def scores_to_dataframe(results: dict):
     Flatten the nested results dict from compare_models_and_targets into a
     tidy DataFrame with columns [model, target, layer, metric, score].
     """
-    import pandas as pd
-
     rows = []
     for model, targets in results.items():
         for target, metrics in targets.items():
@@ -284,49 +287,87 @@ def scores_to_dataframe(results: dict):
     return pd.DataFrame(rows)
 
 
+def sort_layer_names(layer_names: list) -> list:
+    """
+    Sort layer names in architectural order (early → late).
+
+    Handles ResNet layers ("layer1-0", "layer3-10", …) and Qwen layers
+    ("visual-blocks-2", "language_model-layers-8", …).
+    For unknown patterns, falls back to lexicographic sort.
+    """
+    def sort_key(name):
+        # ResNet: "layerN-M"  →  (N, M)
+        m = re.fullmatch(r"layer(\d+)-(\d+)", name)
+        if m:
+            return (0, int(m.group(1)), int(m.group(2)))
+        # Qwen visual encoder comes before language model
+        m = re.fullmatch(r"visual-blocks-(\d+)", name)
+        if m:
+            return (1, 0, int(m.group(1)))
+        m = re.fullmatch(r"language_model-layers-(\d+)", name)
+        if m:
+            return (1, 1, int(m.group(1)))
+        # fallback: lexicographic
+        return (2, 0, name)
+
+    return sorted(layer_names, key=sort_key)
+
+
 def plot_layerwise_alignment(
     df,
     target: str,
-    layer_order: list = None,
     title_prefix: str = "",
     save_path: str = None,
 ):
     """
-    Plot RSA and CKA layer-wise scores for a single brain target, one line per model.
+    Plot RSA and CKA layer-wise brain-model alignment scores for two models.
+
+    Produces 2 subplots (RSA, CKA). Both models are plotted on the same x-axis
+    since they have the same number of layers. Each tick label shows both layer
+    names stacked: "<Qwen layer>\n<ResNet layer>", so the positional correspondence
+    is clear without mixing architecturally incomparable names on a single axis label.
 
     Parameters
     ----------
     df : pd.DataFrame
         Output of scores_to_dataframe; columns [model, target, layer, metric, score].
     target : str
-        Brain target to plot (e.g. "IT").
-    layer_order : list, optional
-        Explicit layer ordering; defaults to the order found in df.
+        Brain target to filter on (e.g. "IT").
     title_prefix : str
         Prepended to each subplot title.
     save_path : str, optional
         If provided, saves the figure to this path (should end with .png).
     """
-    import matplotlib.pyplot as plt
-
     sub = df[df.target == target]
-    if layer_order is None:
-        layer_order = list(dict.fromkeys(sub["layer"].tolist()))  # preserve order, deduplicate
+    models = sorted(sub["model"].unique())  # deterministic order
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    # sort each model's layers independently in architectural order
+    layer_orders = {
+        model: sort_layer_names(sub[sub.model == model]["layer"].unique().tolist())
+        for model in models
+    }
+
+    # build dual tick labels: "qwen_layer\nresnet_layer" at each position
+    n_layers = len(layer_orders[models[0]])
+    tick_labels = [
+        "\n".join(layer_orders[m][i] for m in models)
+        for i in range(n_layers)
+    ]
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     for ax, metric in zip(axes, ["RSA", "CKA"]):
-        metric_sub = sub[sub.metric == metric]
-        for model, grp in metric_sub.groupby("model"):
-            # reindex to the shared layer order so all lines have the same x positions
-            scores = grp.set_index("layer").reindex(layer_order)["score"].values
-            ax.plot(range(len(layer_order)), scores, marker="o", label=model)
-        ax.set_xticks(range(len(layer_order)))
-        ax.set_xticklabels(layer_order, rotation=45, ha="right")
-        title = f"{title_prefix} — " if title_prefix else ""
-        ax.set_title(f"{title}{metric} — {target}")
-        ax.set_xlabel("Layer")
+        for model in models:
+            grp = sub[(sub.model == model) & (sub.metric == metric)]
+            scores = grp.set_index("layer").reindex(layer_orders[model])["score"].values
+            ax.plot(range(n_layers), scores, marker="o", label=model)
+        ax.set_xticks(range(n_layers))
+        ax.set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=7)
+        prefix = f"{title_prefix}, " if title_prefix else ""
+        ax.set_title(f"{prefix}{metric}, {target}")
+        ax.set_xlabel("Layer index  (Qwen / ResNet)")
         ax.set_ylabel("Score")
         ax.legend()
+
     plt.tight_layout()
     if save_path:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
@@ -359,11 +400,9 @@ def plot_roi_alignment(
     save_path : str, optional
         If provided, saves the figure to this path (should end with .png).
     """
-    import matplotlib.pyplot as plt
-
     sub = df[df.model == model]
     if layer_order is None:
-        layer_order = list(dict.fromkeys(sub["layer"].tolist()))
+        layer_order = sort_layer_names(sub["layer"].unique().tolist())  # architectural order
     if roi_order is None:
         roi_order = list(dict.fromkeys(sub["target"].tolist()))
 
@@ -376,8 +415,8 @@ def plot_roi_alignment(
             ax.plot(range(len(layer_order)), scores, marker="o", label=roi)
         ax.set_xticks(range(len(layer_order)))
         ax.set_xticklabels(layer_order, rotation=45, ha="right")
-        title = f"{title_prefix} — " if title_prefix else ""
-        ax.set_title(f"{title}{model} — {metric} across ROIs")
+        title = f"{title_prefix}, " if title_prefix else ""
+        ax.set_title(f"{title}{model}, {metric} across ROIs")
         ax.set_xlabel("Layer")
         ax.set_ylabel("Score")
         ax.legend()
@@ -404,3 +443,19 @@ def best_layer_table(df):
     idx = df.groupby(["model", "target", "metric"])["score"].idxmax()
     best = df.loc[idx, ["model", "target", "metric", "layer", "score"]]
     return best.sort_values(["metric", "model", "target"]).reset_index(drop=True)
+
+def load_features(feat_path, neural_ids):
+    with h5py.File(feat_path, "r") as f:
+        feat_ids  = f["ids"][:]
+        id_to_idx = {id_: i for i, id_ in enumerate(feat_ids)}
+        feat_idx  = np.array([id_to_idx[x] for x in neural_ids])
+
+        sort_order    = np.argsort(feat_idx)
+        restore_order = np.argsort(sort_order)
+        sorted_idx    = feat_idx[sort_order]
+
+        layers = {}
+        for key in f["features"].keys():
+            data = f["features"][key][sorted_idx]
+            layers[key] = data[restore_order]
+    return layers
