@@ -3,6 +3,7 @@ from sklearn.linear_model import Ridge, SGDRegressor
 from sklearn.model_selection import cross_val_score, KFold, train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import r2_score, mean_squared_error
+import h5py
 
 class ModelBrainDataset():
     """
@@ -10,8 +11,7 @@ class ModelBrainDataset():
     Loads model activations for given stimuli and pairs them with neural responses.
     Assumes train and test sets are already separated.
     """
-    def __init__(self, y_train, y_test, stimuli_train, stimuli_test, model_name, 
-                 activations_path_template="PATH_TO_ACTIVATIONS/{model_name}/{stimuli_id}.npy"):
+    def __init__(self, y_train, y_test, stimuli_train, stimuli_test, model_name, activations_path):
         """
         Initializes the dataset by loading model activations for provided stimuli.
 
@@ -21,27 +21,25 @@ class ModelBrainDataset():
         stimuli_train (array-like): Stimuli identifiers/indices for training (n_train_samples,).
         stimuli_test (array-like): Stimuli identifiers/indices for test (n_test_samples,).
         model_name (str): Name of the model (used to locate activations).
-        activations_path_template (str): Template path for loading activations.
-                                         Placeholders: {model_name}, {stimuli_id}.
-                                         Default: "PATH_TO_ACTIVATIONS/{model_name}/{stimuli_id}.npy"
+        activations_path (str): Path for loading activations."
         """
         self.y_train = y_train
         self.y_test = y_test
         self.stimuli_train = stimuli_train
         self.stimuli_test = stimuli_test
         self.model_name = model_name
-        self.activations_path_template = activations_path_template
+        self.activations_path = activations_path
         
         # Load activations
-        self.X_train = self._load_activations(stimuli_train, model_name, activations_path_template)
-        self.X_test = self._load_activations(stimuli_test, model_name, activations_path_template)
+        self.X_train = self._load_activations(stimuli_train, model_name, activations_path)
+        self.X_test = self._load_activations(stimuli_test, model_name, activations_path)
         
         self.X_val = None
         self.y_val = None
         self.X_train_split = None
         self.y_train_split = None
 
-    def _load_activations(self, stimuli_ids, model_name, path_template):
+    def _load_activations(self, stimuli_ids, model_name, path):
         """
         Loads model activations for the given stimuli.
 
@@ -55,15 +53,20 @@ class ModelBrainDataset():
         """
         activations_list = []
         for stim_id in stimuli_ids:
-            # Format the path with model_name and stimuli_id
-            path = path_template.format(model_name=model_name, stimuli_id=stim_id)
-            
+
             # Load activation (placeholder - adjust based on your file format)
-            activation = np.load(path)
+            with h5py.File(path, "r") as f:
+                model_layers = list(f['features'].keys())
+                features = f['features'][model_layers[0]][:]
+                ids = list(f['ids'][:])
+
+            for stim_id in stimuli_ids:
+                activation = features[ids.index(stim_id),:]
             activations_list.append(activation)
         
         # Stack all activations
         X = np.vstack(activations_list)
+        print(X.shape)
         return X
 
     def get_data(self):
