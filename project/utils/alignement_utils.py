@@ -249,21 +249,6 @@ def compare_models_and_targets(
     -------
     dict
         Nested as results[model_name][target_name] = {'RSA': {...}, 'CKA': {...}}
-
-    Examples
-    --------
-    # ROI sweep (TVSD / NSD)
-    results = compare_models_and_targets(
-        models_features={'resnet': resnet_layers, 'qwen': qwen_layers},
-        target_responses={'V1': v1_test, 'V4': v4_test, 'IT': it_test},
-    )
-
-    # Time-resolved EEG: pass one slice per time point
-    eeg_targets = {f't{t}': eeg_test[:, :, t] for t in range(n_timepoints)}
-    results = compare_models_and_targets(
-        models_features={'resnet': resnet_layers},
-        target_responses=eeg_targets,
-    )
     """
     if rsa is None:
         rsa = RepresentationalSimilarityAnalysis()
@@ -284,8 +269,6 @@ def scores_to_dataframe(results: dict):
     """
     Flatten the nested results dict from compare_models_and_targets into a
     tidy DataFrame with columns [model, target, layer, metric, score].
-
-    Requires pandas.
     """
     import pandas as pd
 
@@ -299,3 +282,125 @@ def scores_to_dataframe(results: dict):
                              metric=metric, score=score)
                     )
     return pd.DataFrame(rows)
+
+
+def plot_layerwise_alignment(
+    df,
+    target: str,
+    layer_order: list = None,
+    title_prefix: str = "",
+    save_path: str = None,
+):
+    """
+    Plot RSA and CKA layer-wise scores for a single brain target, one line per model.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Output of scores_to_dataframe; columns [model, target, layer, metric, score].
+    target : str
+        Brain target to plot (e.g. "IT").
+    layer_order : list, optional
+        Explicit layer ordering; defaults to the order found in df.
+    title_prefix : str
+        Prepended to each subplot title.
+    save_path : str, optional
+        If provided, saves the figure to this path (should end with .png).
+    """
+    import matplotlib.pyplot as plt
+
+    sub = df[df.target == target]
+    if layer_order is None:
+        layer_order = list(dict.fromkeys(sub["layer"].tolist()))  # preserve order, deduplicate
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    for ax, metric in zip(axes, ["RSA", "CKA"]):
+        metric_sub = sub[sub.metric == metric]
+        for model, grp in metric_sub.groupby("model"):
+            # reindex to the shared layer order so all lines have the same x positions
+            scores = grp.set_index("layer").reindex(layer_order)["score"].values
+            ax.plot(range(len(layer_order)), scores, marker="o", label=model)
+        ax.set_xticks(range(len(layer_order)))
+        ax.set_xticklabels(layer_order, rotation=45, ha="right")
+        title = f"{title_prefix} — " if title_prefix else ""
+        ax.set_title(f"{title}{metric} — {target}")
+        ax.set_xlabel("Layer")
+        ax.set_ylabel("Score")
+        ax.legend()
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    return fig
+
+
+def plot_roi_alignment(
+    df,
+    model: str,
+    roi_order: list = None,
+    layer_order: list = None,
+    title_prefix: str = "",
+    save_path: str = None,
+):
+    """
+    Plot RSA and CKA layer-wise scores across brain ROIs for a single model.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Output of scores_to_dataframe; columns [model, target, layer, metric, score].
+    model : str
+        Model name to plot (e.g. "ResNet").
+    roi_order : list, optional
+        Explicit ROI ordering; defaults to unique targets in df.
+    layer_order : list, optional
+        Explicit layer ordering; defaults to the order found in df.
+    title_prefix : str
+        Prepended to each subplot title.
+    save_path : str, optional
+        If provided, saves the figure to this path (should end with .png).
+    """
+    import matplotlib.pyplot as plt
+
+    sub = df[df.model == model]
+    if layer_order is None:
+        layer_order = list(dict.fromkeys(sub["layer"].tolist()))
+    if roi_order is None:
+        roi_order = list(dict.fromkeys(sub["target"].tolist()))
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    for ax, metric in zip(axes, ["RSA", "CKA"]):
+        metric_sub = sub[sub.metric == metric]
+        for roi in roi_order:
+            grp = metric_sub[metric_sub.target == roi]
+            scores = grp.set_index("layer").reindex(layer_order)["score"].values
+            ax.plot(range(len(layer_order)), scores, marker="o", label=roi)
+        ax.set_xticks(range(len(layer_order)))
+        ax.set_xticklabels(layer_order, rotation=45, ha="right")
+        title = f"{title_prefix} — " if title_prefix else ""
+        ax.set_title(f"{title}{model} — {metric} across ROIs")
+        ax.set_xlabel("Layer")
+        ax.set_ylabel("Score")
+        ax.legend()
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    return fig
+
+
+def best_layer_table(df):
+    """
+    Return a summary table of the best-scoring layer per (model, target, metric).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Output of scores_to_dataframe.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns [model, target, metric, layer, score], one row per combination.
+    """
+    idx = df.groupby(["model", "target", "metric"])["score"].idxmax()
+    best = df.loc[idx, ["model", "target", "metric", "layer", "score"]]
+    return best.sort_values(["metric", "model", "target"]).reset_index(drop=True)
