@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.linear_model import SGDRegressor
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import r2_score, mean_squared_error
 import h5py
 
 class ModelBrainDataset():
@@ -225,5 +226,57 @@ class SGDEncoder():
             'best_alpha': self.best_alpha_,
             'best_score': grid_search.best_score_,
             'cv_results': grid_search.cv_results_
+        }
+    
+    def fit_and_evaluate(self, dataset, alphas=None, cv=5, val_size=0.2, scoring='r2'):
+        """
+        Fit and evaluate model on a ModelBrainDataset.
+        
+        Workflow:
+        1. Split training data into train+val
+        2. Select hyperparameters using cross-validation (no test data)
+        3. Refit on full train+val
+        4. Evaluate on held-out test set
+
+        Parameters:
+        dataset (ModelBrainDataset): Dataset with pre-separated train and test splits.
+        alphas (array-like): Alpha values to search. If None, uses defaults.
+        cv (int): Number of cross-validation folds for hyperparameter selection.
+        val_size (float): Proportion of training data for validation.
+        scoring (str): Scoring metric (default: 'r2').
+
+        Returns:
+        dict: Results including best_alpha, cv_score, r2_test, mse_test, predictions.
+        """
+        # Split training data into train and validation
+        dataset.split_train_val(val_size=val_size, random_state=self.random_state)
+        splits = dataset.get_train_val_splits()
+        
+        # Combine train and val for hyperparameter selection
+        X_train_val = np.vstack([splits['X_train'], splits['X_val']])
+        y_train_val = np.vstack([splits['y_train'], splits['y_val']])
+        
+        # Get test data (completely held-out)
+        X_test = dataset.X_test
+        y_test = dataset.y_test
+        
+        # Select hyperparameters on train+val (no test leakage)
+        hp_results = self.select_hyperparams(
+            X_train_val, y_train_val,
+            alphas=alphas, cv=cv, scoring=scoring
+        )
+        
+        # Evaluate on test set
+        y_pred_test = self.predict(X_test)
+        r2_test = r2_score(y_test, y_pred_test)
+        mse_test = mean_squared_error(y_test, y_pred_test)
+        
+        return {
+            'best_alpha': hp_results['best_alpha'],
+            'cv_score': hp_results['best_score'],
+            'r2_test': r2_test,
+            'mse_test': mse_test,
+            'y_pred_test': y_pred_test,
+            'y_test': y_test
         }
 
