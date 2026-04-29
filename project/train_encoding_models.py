@@ -112,7 +112,9 @@ def get_model_layers(model_name, dataset_name):
     return layers
 
 
-def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, layer_name, subject=None, verbose=True):
+def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, layer_name, subject=None, 
+                       max_epochs=500, min_epochs=20, patience=10, tolerance=1e-5, 
+                       batch_size=256, learning_rate=0.001, verbose=True):
     """
     Train and evaluate an encoding model for a single layer.
     
@@ -123,6 +125,12 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     roi (str): Region of interest
     layer_name (str): Name of the layer
     subject (str): Subject identifier (optional, defaults per dataset)
+    max_epochs (int): Maximum number of training epochs
+    min_epochs (int): Minimum epochs before early stopping allowed
+    patience (int): Number of epochs with no improvement before early stopping
+    tolerance (float): Tolerance for convergence detection
+    batch_size (int): Batch size for training
+    learning_rate (float): Learning rate for optimizer
     verbose (bool): Print progress and results
     
     Returns:
@@ -156,9 +164,16 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     # Initialize encoder with GPU acceleration
     if verbose:
         print(f"Initializing GPU-accelerated encoder with hyperparameter tuning...")
+        print(f"  Training params: max_epochs={max_epochs}, min_epochs={min_epochs}, patience={patience}, tol={tolerance:.1e}")
     encoder = SGDEncoder(
-        alpha=0.0001, max_iter=500, batch_size=256,
-        learning_rate=0.001, random_state=42
+        alpha=0.0001, 
+        max_iter=max_epochs,
+        min_iter=min_epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate, 
+        early_stopping_patience=patience,
+        early_stopping_tol=tolerance,
+        random_state=42
     )
     
     # Fit and evaluate with hyperparameter selection via cross-validation
@@ -282,6 +297,30 @@ Examples:
         '--output-dir', type=str, default='./results',
         help='Directory to save results (default: ./results)'
     )
+    parser.add_argument(
+        '--max-epochs', type=int, default=500,
+        help='Maximum number of training epochs (default: 500)'
+    )
+    parser.add_argument(
+        '--min-epochs', type=int, default=20,
+        help='Minimum number of epochs before early stopping allowed (default: 20)'
+    )
+    parser.add_argument(
+        '--patience', type=int, default=10,
+        help='Number of epochs with no improvement before early stopping (default: 10)'
+    )
+    parser.add_argument(
+        '--tolerance', type=float, default=1e-5,
+        help='Tolerance for convergence detection (default: 1e-5)'
+    )
+    parser.add_argument(
+        '--batch-size', type=int, default=256,
+        help='Batch size for training (default: 256)'
+    )
+    parser.add_argument(
+        '--learning-rate', type=float, default=0.001,
+        help='Learning rate for optimizer (default: 0.001)'
+    )
     
     args = parser.parse_args()
     
@@ -314,6 +353,12 @@ Examples:
             results = train_layer_encoder(
                 args.model, args.dataset, args.neural_dataset, args.roi, layer,
                 subject=args.subject,
+                max_epochs=args.max_epochs,
+                min_epochs=args.min_epochs,
+                patience=args.patience,
+                tolerance=args.tolerance,
+                batch_size=args.batch_size,
+                learning_rate=args.learning_rate,
                 verbose=args.verbose
             )
             all_results.append(results)

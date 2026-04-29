@@ -132,21 +132,28 @@ class SGDEncoder():
     Linear Encoding Model using PyTorch with GPU acceleration.
     Supports multi-output regression for multiple neural units.
     """
-    def __init__(self, alpha=0.0001, max_iter=1000, batch_size=32, learning_rate=0.001, random_state=42):
+    def __init__(self, alpha=0.0001, max_iter=500, min_iter=10, batch_size=32, learning_rate=0.001, 
+                 early_stopping_patience=10, early_stopping_tol=1e-6, random_state=42):
         """
         Initializes the SGDEncoder with GPU support.
 
         Parameters:
         alpha (float): L2 regularization strength (default: 0.0001).
-        max_iter (int): Maximum number of iterations/epochs.
-        batch_size (int): Batch size for training.
+        max_iter (int): Maximum number of iterations/epochs (default: 500).
+        min_iter (int): Minimum number of epochs before early stopping allowed (default: 10).
+        batch_size (int): Batch size for training (default: 32).
         learning_rate (float): Learning rate for the optimizer (default: 0.001 for stability).
+        early_stopping_patience (int): Number of epochs with no improvement to stop training (default: 10).
+        early_stopping_tol (float): Tolerance for improvement detection (default: 1e-6).
         random_state (int): Random seed for reproducibility.
         """
         self.alpha = alpha
         self.max_iter = max_iter
+        self.min_iter = min_iter
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.early_stopping_patience = early_stopping_patience
+        self.early_stopping_tol = early_stopping_tol
         self.random_state = random_state
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = None
@@ -165,7 +172,7 @@ class SGDEncoder():
         model = LinearRegressionModel(n_features, n_outputs).to(self.device)
         return model
 
-    def fit(self, X, y, batch_size=None, verbose=False, early_stopping_patience=10):
+    def fit(self, X, y, batch_size=None, verbose=False):
         """
         Fits the model to the training data on GPU with data normalization and early stopping.
 
@@ -174,7 +181,6 @@ class SGDEncoder():
         y (array-like): Target values (n_samples,) or (n_samples, n_units) for multi-output.
         batch_size (int): Batch size for training. If None, uses self.batch_size.
         verbose (bool): Print training progress.
-        early_stopping_patience (int): Number of epochs with no improvement to stop training.
         """
         if batch_size is None:
             batch_size = self.batch_size
@@ -231,20 +237,23 @@ class SGDEncoder():
             
             avg_loss = total_loss / len(dataloader)
             
-            # Early stopping check
-            if avg_loss < best_loss - 1e-6:  # Small epsilon for numerical stability
-                best_loss = avg_loss
-                patience_counter = 0
+            # Early stopping check (only after min_iter epochs)
+            if epoch >= self.min_iter - 1:
+                if avg_loss < best_loss - self.early_stopping_tol:
+                    best_loss = avg_loss
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
             else:
-                patience_counter += 1
+                best_loss = min(best_loss, avg_loss)
             
             if verbose and (epoch + 1) % max(1, self.max_iter // 20) == 0:
                 print(f"  Epoch {epoch + 1}/{self.max_iter}, Loss: {avg_loss:.6f}")
             
-            # Stop if converged
-            if patience_counter >= early_stopping_patience:
+            # Stop if converged (only after min_iter epochs)
+            if epoch >= self.min_iter - 1 and patience_counter >= self.early_stopping_patience:
                 if verbose:
-                    print(f"  Early stopping at epoch {epoch + 1} (no improvement for {early_stopping_patience} epochs)")
+                    print(f"  Early stopping at epoch {epoch + 1} (no improvement for {self.early_stopping_patience} epochs, tol={self.early_stopping_tol:.1e})")
                 break
 
     def predict(self, X):
