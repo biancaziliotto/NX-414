@@ -312,7 +312,7 @@ class SGDEncoder():
             y_val = y[test_start:test_end]
             
             # Train and score
-            self.fit(X_train, y_train, verbose=False)
+            self.fit(X_train, y_train, verbose=verbose)
             y_pred = self.predict(X_val)
             
             if len(y_val.shape) == 1:
@@ -354,7 +354,7 @@ class SGDEncoder():
         
         for alpha in alphas:
             self.alpha = alpha
-            cv_results = self.cross_validate(X, y, cv=cv, scoring=scoring, verbose=False)
+            cv_results = self.cross_validate(X, y, cv=cv, scoring=scoring, verbose=verbose)
             mean_score = cv_results['mean']
             all_scores[alpha] = mean_score
             
