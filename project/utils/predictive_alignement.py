@@ -165,15 +165,16 @@ class SGDEncoder():
         model = LinearRegressionModel(n_features, n_outputs).to(self.device)
         return model
 
-    def fit(self, X, y, batch_size=None, verbose=False):
+    def fit(self, X, y, batch_size=None, verbose=False, early_stopping_patience=10):
         """
-        Fits the model to the training data on GPU with data normalization.
+        Fits the model to the training data on GPU with data normalization and early stopping.
 
         Parameters:
         X (array-like): Feature vectors (n_samples, n_features).
         y (array-like): Target values (n_samples,) or (n_samples, n_units) for multi-output.
         batch_size (int): Batch size for training. If None, uses self.batch_size.
         verbose (bool): Print training progress.
+        early_stopping_patience (int): Number of epochs with no improvement to stop training.
         """
         if batch_size is None:
             batch_size = self.batch_size
@@ -204,7 +205,11 @@ class SGDEncoder():
         optimizer = Adam(self.model.parameters(), lr=self.learning_rate)
         criterion = nn.MSELoss()
         
-        # Training loop
+        # Early stopping tracking
+        best_loss = float('inf')
+        patience_counter = 0
+        
+        # Training loop with early stopping
         for epoch in range(self.max_iter):
             total_loss = 0
             for batch_X, batch_y in dataloader:
@@ -224,8 +229,23 @@ class SGDEncoder():
                 optimizer.step()
                 total_loss += loss.item()
             
-            if verbose and (epoch + 1) % max(1, self.max_iter // 10) == 0:
-                print(f"  Epoch {epoch + 1}/{self.max_iter}, Loss: {total_loss / len(dataloader):.6f}")
+            avg_loss = total_loss / len(dataloader)
+            
+            # Early stopping check
+            if avg_loss < best_loss - 1e-6:  # Small epsilon for numerical stability
+                best_loss = avg_loss
+                patience_counter = 0
+            else:
+                patience_counter += 1
+            
+            if verbose and (epoch + 1) % max(1, self.max_iter // 20) == 0:
+                print(f"  Epoch {epoch + 1}/{self.max_iter}, Loss: {avg_loss:.6f}")
+            
+            # Stop if converged
+            if patience_counter >= early_stopping_patience:
+                if verbose:
+                    print(f"  Early stopping at epoch {epoch + 1} (no improvement for {early_stopping_patience} epochs)")
+                break
 
     def predict(self, X):
         """

@@ -140,39 +140,41 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     if verbose:
         print(f"  Neural data shapes - y_train: {y_train.shape}, y_test: {y_test.shape}")
     
-    # Load model activations for this layer
+    # Create ModelBrainDataset for proper train/test/val management
     if verbose:
-        print(f"Loading model activations...")
-    activations_path = f"/shared/NX-414/extracted_features/{model_name}/{dataset_name}.h5"
-    with h5py.File(activations_path, 'r') as f:
-        layer_data = f['features'][layer_name][:]
-        activation_indexes = np.array(f['ids'][:])
-    
-    # Map stimulus IDs to activations
-    data_indexes_train = np.array([np.where(activation_indexes == sid)[0][0] for sid in stimuli_train])
-    data_indexes_test = np.array([np.where(activation_indexes == sid)[0][0] for sid in stimuli_test])
-    
-    X_train = layer_data[data_indexes_train, :]
-    X_test = layer_data[data_indexes_test, :]
+        print(f"Creating dataset...")
+    dataset = ModelBrainDataset(
+        y_train=y_train, y_test=y_test,
+        stimuli_train=stimuli_train, stimuli_test=stimuli_test,
+        model_name=model_name, dataset_name=dataset_name
+    )
     
     if verbose:
-        print(f"  Feature shapes - X_train: {X_train.shape}, X_test: {X_test.shape}")
-        print(f"  Target shapes - y_train: {y_train.shape}, y_test: {y_test.shape}")
+        print(f"  Feature shapes - X_train: {dataset.X_train.shape}, X_test: {dataset.X_test.shape}")
+        print(f"  Target shapes - y_train: {dataset.y_train.shape}, y_test: {dataset.y_test.shape}")
     
-    # Train encoder with batch processing and GPU acceleration
+    # Initialize encoder with GPU acceleration
     if verbose:
-        print(f"Initializing GPU-accelerated encoder with data normalization...")
-    encoder = SGDEncoder(alpha=0.0001, max_iter=100, batch_size=256, learning_rate=0.001, random_state=42)
+        print(f"Initializing GPU-accelerated encoder with hyperparameter tuning...")
+    encoder = SGDEncoder(
+        alpha=0.0001, max_iter=500, batch_size=256,
+        learning_rate=0.001, random_state=42
+    )
     
-    # Fit with verbose output to see training progress
+    # Fit and evaluate with hyperparameter selection via cross-validation
     if verbose:
-        print(f"Training encoder on GPU (batch_size=256, lr=0.001)...")
-    encoder.fit(X_train, y_train, batch_size=256, verbose=verbose)
+        print(f"Training with hyperparameter selection (5-fold CV)...")
+    results = encoder.fit_and_evaluate(
+        dataset,
+        alphas=[1e-6, 1e-5, 1e-4, 1e-3, 1e-2],
+        cv=5,
+        val_size=0.2,
+        scoring='r2',
+        verbose=verbose
+    )
     
-    # Evaluate on test set
-    if verbose:
-        print(f"Evaluating on test set...")
-    y_pred = encoder.predict(X_test)
+    y_pred = results['y_pred_test']
+    y_test = results['y_test']
     
     # Calculate metrics per unit (voxel/neuron)
     r2_scores = []
@@ -184,15 +186,17 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         r2_scores.append(r2)
         mse_scores.append(mse)
     
-    results = {
+    layer_results = {
         'layer': layer_name,
         'model': model_name,
         'dataset': dataset_name,
         'roi': roi,
-        'X_train_shape': X_train.shape,
-        'X_test_shape': X_test.shape,
-        'y_train_shape': y_train.shape,
-        'y_test_shape': y_test.shape,
+        'X_train_shape': dataset.X_train.shape,
+        'X_test_shape': dataset.X_test.shape,
+        'y_train_shape': dataset.y_train.shape,
+        'y_test_shape': dataset.y_test.shape,
+        'best_alpha': results['best_alpha'],
+        'cv_score_mean': results['cv_score'],
         'r2_mean': np.mean(r2_scores),
         'r2_std': np.std(r2_scores),
         'r2_median': np.median(r2_scores),
@@ -205,12 +209,14 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     
     if verbose:
         print(f"\nResults for {layer_name}:")
-        print(f"  R² Mean: {results['r2_mean']:.4f} ± {results['r2_std']:.4f}")
-        print(f"  R² Range: [{results['r2_min']:.4f}, {results['r2_max']:.4f}]")
-        print(f"  MSE Mean: {results['mse_mean']:.4f} ± {results['mse_std']:.4f}")
-        print(f"  Units analyzed: {results['n_units']}")
+        print(f"  Best Alpha: {layer_results['best_alpha']:.1e}")
+        print(f"  CV R² Score: {layer_results['cv_score_mean']:.4f}")
+        print(f"  Test R² Mean: {layer_results['r2_mean']:.4f} ± {layer_results['r2_std']:.4f}")
+        print(f"  Test R² Range: [{layer_results['r2_min']:.4f}, {layer_results['r2_max']:.4f}]")
+        print(f"  Test MSE Mean: {layer_results['mse_mean']:.4f} ± {layer_results['mse_std']:.4f}")
+        print(f"  Units analyzed: {layer_results['n_units']}")
     
-    return results
+    return layer_results
 
 
 def main():
