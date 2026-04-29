@@ -114,7 +114,7 @@ def get_model_layers(model_name, dataset_name):
 
 def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, layer_name, subject=None, 
                        max_epochs=500, min_epochs=20, patience=10, tolerance=1e-5, 
-                       batch_size=256, learning_rate=0.001, verbose=True, n_jobs=-1):
+                       batch_size=256, learning_rate=0.001, verbose=True):
     """
     Train and evaluate an encoding model for a single layer.
     
@@ -132,7 +132,6 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     batch_size (int): Batch size for training
     learning_rate (float): Learning rate for optimizer
     verbose (bool): Print progress and results
-    n_jobs (int): Number of parallel jobs for CV (-1 for all CPUs)
     
     Returns:
     dict: Results dictionary with metrics
@@ -336,10 +335,6 @@ Examples:
         '--learning-rate', type=float, default=0.0001,
         help='Learning rate for optimizer (default: 0.0001)'
     )
-    parser.add_argument(
-        '--n-jobs', type=int, default=-1,
-        help='Number of parallel jobs for CV and hyperparameter search (-1 for all CPUs, default: -1)'
-    )
     
     args = parser.parse_args()
     
@@ -397,8 +392,7 @@ Examples:
                 tolerance=args.tolerance,
                 batch_size=args.batch_size,
                 learning_rate=args.learning_rate,
-                verbose=args.verbose,
-                n_jobs=args.n_jobs
+                verbose=args.verbose
             )
             all_results.append(results)
             
