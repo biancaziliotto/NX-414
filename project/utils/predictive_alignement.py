@@ -64,8 +64,19 @@ class ModelBrainDataset():
         feat_idx = np.array([id_to_feat_idx[x] for x in stimuli_ids])
 
         layer_act = activations_file["features"][layer]
-        X = layer_act[feat_idx, :]
         
+        # HDF5 requires indices in sorted order for fancy indexing
+        # So we sort, read, then un-sort to match original order
+        sort_order = np.argsort(feat_idx)
+        feat_idx_sorted = feat_idx[sort_order]
+        
+        # Read with sorted indices (vectorized, fast!)
+        X_sorted = layer_act[feat_idx_sorted, :]
+        
+        # Un-sort to match original stimulus order
+        unsort_order = np.argsort(sort_order)
+        X = X_sorted[unsort_order, :]
+
         return X
 
     def get_data(self):
