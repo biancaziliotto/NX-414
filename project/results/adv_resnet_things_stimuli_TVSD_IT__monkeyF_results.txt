@@ -1,0 +1,20 @@
+Encoding Model Training Results
+======================================================================
+Model: adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0
+Dataset: things_stimuli
+Neural Dataset: TVSD
+ROI: IT
+Subject: monkeyF
+======================================================================
+
+Layer: layer1-0
+  Best Alpha: 1.0e-01
+  CV R² Score: 0.1043
+  Test R² Mean: 0.2030 ± 0.1596
+  Test R² Range: [-0.3185, 0.6611]
+  Test R² Median: 0.1664
+  Test MSE Mean: 0.0593 ± 0.0498
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+

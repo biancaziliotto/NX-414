@@ -1,7 +1,6 @@
 # Configuration
 REMOTE_HOST="${REMOTE_HOST:-localhost}"
 REMOTE_USER="${REMOTE_USER:-}"
-PROJECT_DIR="/home/user/NX-414/project"
 VERBOSE=true
 
 # Define parameter mappings (neural_dataset -> dataset, subjects, rois)
@@ -22,8 +21,10 @@ EEG2_ROIS=("occipital_parietal")
 
 
 # Parse command line arguments
-MODELS=("ResNet50" "Qwen3-VL-2B-Instruct")
+MODELS=("adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0" "Qwen3-VL-2B-Instruct")
 NEURAL_DATASETS=("TVSD" "EEG2" "NSD")
+
+cd project
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -70,7 +71,6 @@ echo "Models: ${MODELS[*]}"
 echo "Neural Datasets: ${NEURAL_DATASETS[*]}"
 echo "Remote Host: $REMOTE_HOST"
 echo "Remote User: ${REMOTE_USER:-current user}"
-echo "Project Dir: $PROJECT_DIR"
 if [ "$DRY_RUN" = true ]; then
     echo "MODE: DRY RUN (no training)"
 fi
@@ -148,7 +148,7 @@ for model in "${MODELS[@]}"; do
                 echo "[$COMBO_NUM/$TOTAL_COMBOS] model=$model neural_dataset=$neural_dataset dataset=$DATASET subject=$subject roi=$roi"
                 
                 # Build training command
-                TRAIN_CMD="cd $PROJECT_DIR && python train_encoding_models.py \
+                TRAIN_CMD="python train_encoding_models.py \
                     --model '$model' \
                     --neural_dataset '$neural_dataset' \
                     --dataset '$DATASET' \

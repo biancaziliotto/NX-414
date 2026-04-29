@@ -187,8 +187,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         cv=validation_folds,
         val_size=1/validation_folds,
         scoring='r2',
-        verbose=verbose,
-        n_jobs=n_jobs
+        verbose=verbose
     )
     
     y_pred = results['y_pred_test']
@@ -363,8 +362,8 @@ Examples:
         output_dir.mkdir(parents=True, exist_ok=True)
         
         subject_str = f"_{args.subject}" if args.subject else ""
-        txt_file = output_dir / f"{args.model}_{args.dataset}_{args.roi}{subject_str}_results.txt"
-        json_file = output_dir / f"{args.model}_{args.dataset}_{args.roi}{subject_str}_results.json"
+        txt_file = output_dir / f"{args.model[:10]}_{args.dataset}_{args.neural_dataset}_{args.roi}_{subject_str}_results.txt"
+        json_file = output_dir / f"{args.model[:10]}_{args.dataset}_{args.neural_dataset}_{args.roi}_{subject_str}_results.json"
         
         # Write txt header
         with open(txt_file, 'w') as f:

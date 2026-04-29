@@ -374,7 +374,7 @@ class SGDEncoder():
             'cv_results': all_scores
         }
     
-    def fit_and_evaluate(self, dataset, alphas=None, cv=5, val_size=0.2, scoring='r2', verbose=False, n_jobs=-1):
+    def fit_and_evaluate(self, dataset, alphas=None, cv=5, val_size=0.2, scoring='r2', verbose=False):
         """
         Fit and evaluate model on a ModelBrainDataset with GPU acceleration.
         
