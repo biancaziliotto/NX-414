@@ -114,7 +114,7 @@ def get_model_layers(model_name, dataset_name):
 
 def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, layer_name, subject=None, 
                        max_epochs=500, min_epochs=20, patience=10, tolerance=1e-5, 
-                       batch_size=256, learning_rate=0.001, verbose=True):
+                       batch_size=256, learning_rate=0.001, verbose=True, n_jobs=-1):
     """
     Train and evaluate an encoding model for a single layer.
     
@@ -132,6 +132,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     batch_size (int): Batch size for training
     learning_rate (float): Learning rate for optimizer
     verbose (bool): Print progress and results
+    n_jobs (int): Number of parallel jobs for CV (-1 for all CPUs)
     
     Returns:
     dict: Results dictionary with metrics
@@ -187,7 +188,8 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         cv=validation_folds,
         val_size=1/validation_folds,
         scoring='r2',
-        verbose=verbose
+        verbose=verbose,
+        n_jobs=n_jobs
     )
     
     y_pred = results['y_pred_test']
@@ -208,6 +210,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         'model': model_name,
         'dataset': dataset_name,
         'roi': roi,
+        'subject': subject,
         'X_train_shape': dataset.X_train.shape,
         'X_test_shape': dataset.X_test.shape,
         'y_train_shape': dataset.y_train.shape,
@@ -333,6 +336,10 @@ Examples:
         '--learning-rate', type=float, default=0.0001,
         help='Learning rate for optimizer (default: 0.0001)'
     )
+    parser.add_argument(
+        '--n-jobs', type=int, default=-1,
+        help='Number of parallel jobs for CV and hyperparameter search (-1 for all CPUs, default: -1)'
+    )
     
     args = parser.parse_args()
     
@@ -356,6 +363,25 @@ Examples:
         if args.verbose:
             print(f"Found {len(layers)} layers: {layers}")
         
+        # Create output files
+        output_dir = Path(args.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        subject_str = f"_{args.subject}" if args.subject else ""
+        txt_file = output_dir / f"{args.model}_{args.dataset}_{args.roi}{subject_str}_results.txt"
+        json_file = output_dir / f"{args.model}_{args.dataset}_{args.roi}{subject_str}_results.json"
+        
+        # Write txt header
+        with open(txt_file, 'w') as f:
+            f.write(f"Encoding Model Training Results\n")
+            f.write(f"{'='*70}\n")
+            f.write(f"Model: {args.model}\n")
+            f.write(f"Dataset: {args.dataset}\n")
+            f.write(f"Neural Dataset: {args.neural_dataset}\n")
+            f.write(f"ROI: {args.roi}\n")
+            f.write(f"Subject: {args.subject or 'default'}\n")
+            f.write(f"{'='*70}\n\n")
+        
         # Train encoder for each layer
         all_results = []
         for i, layer in enumerate(layers, 1):
@@ -371,9 +397,24 @@ Examples:
                 tolerance=args.tolerance,
                 batch_size=args.batch_size,
                 learning_rate=args.learning_rate,
-                verbose=args.verbose
+                verbose=args.verbose,
+                n_jobs=args.n_jobs
             )
             all_results.append(results)
+            
+            # Progressively append results to txt file
+            with open(txt_file, 'a') as f:
+                f.write(f"Layer: {results['layer']}\n")
+                f.write(f"  Best Alpha: {results['best_alpha']:.1e}\n")
+                f.write(f"  CV R² Score: {results['cv_score_mean']:.4f}\n")
+                f.write(f"  Test R² Mean: {results['r2_mean']:.4f} ± {results['r2_std']:.4f}\n")
+                f.write(f"  Test R² Range: [{results['r2_min']:.4f}, {results['r2_max']:.4f}]\n")
+                f.write(f"  Test R² Median: {results['r2_median']:.4f}\n")
+                f.write(f"  Test MSE Mean: {results['mse_mean']:.4f} ± {results['mse_std']:.4f}\n")
+                f.write(f"  Units analyzed: {results['n_units']}\n")
+                f.write(f"  X shape: {results['X_train_shape']} → {results['X_test_shape']}\n")
+                f.write(f"  y shape: {results['y_train_shape']} → {results['y_test_shape']}\n")
+                f.write(f"\n")
         
         # Summary
         if args.verbose:
@@ -387,16 +428,24 @@ Examples:
         
         # Save results
         if args.save_results:
-            output_dir = Path(args.output_dir)
-            output_dir.mkdir(parents=True, exist_ok=True)
-            
-            subject_str = f"_{args.subject}" if args.subject else ""
-            output_file = output_dir / f"{args.model}_{args.dataset}_{args.roi}{subject_str}_results.json"
-            with open(output_file, 'w') as f:
+            # Save JSON
+            with open(json_file, 'w') as f:
                 json.dump(all_results, f, indent=2)
             
+            # Append summary to txt file
+            with open(txt_file, 'a') as f:
+                f.write(f"\n{'='*70}\n")
+                f.write(f"SUMMARY\n")
+                f.write(f"{'='*70}\n")
+                f.write(f"Layers processed: {len(all_results)}\n")
+                f.write(f"Mean R² across layers: {np.mean([r['r2_mean'] for r in all_results]):.4f}\n")
+                f.write(f"Best R² (layer mean): {max([r['r2_mean'] for r in all_results]):.4f}\n")
+                f.write(f"Worst R² (layer mean): {min([r['r2_mean'] for r in all_results]):.4f}\n")
+            
             if args.verbose:
-                print(f"\nResults saved to: {output_file}")
+                print(f"\nResults saved to:")
+                print(f"  TXT: {txt_file}")
+                print(f"  JSON: {json_file}")
         
         print("\n✓ Training completed successfully!")
         

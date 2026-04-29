@@ -6,6 +6,7 @@ from torch.utils.data import TensorDataset, DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.preprocessing import StandardScaler
+from joblib import Parallel, delayed
 import h5py
 
 class ModelBrainDataset():
@@ -115,6 +116,96 @@ class ModelBrainDataset():
         int: Number of training samples.
         """
         return len(self.X_train)
+
+
+def _train_and_score_fold(X_train, X_val, y_train, y_val, alpha, learning_rate, batch_size, 
+                           max_iter, min_iter, early_stopping_patience, early_stopping_tol, 
+                           random_state, verbose=False):
+    """
+    Helper function to train and evaluate a single fold.
+    Runs on CPU to avoid GPU memory conflicts during parallel CV.
+    """
+    device = torch.device('cpu')  # Use CPU for parallel CV
+    
+    # Normalize data
+    X_scaler = StandardScaler()
+    y_scaler = StandardScaler()
+    X_train_norm = X_scaler.fit_transform(X_train)
+    y_train_norm = y_scaler.fit_transform(y_train)
+    X_val_norm = X_scaler.transform(X_val)
+    y_val_norm = y_scaler.transform(y_val)
+    
+    # Convert to tensors
+    X_train_tensor = torch.FloatTensor(X_train_norm).to(device)
+    y_train_tensor = torch.FloatTensor(y_train_norm).to(device)
+    if len(y_train_tensor.shape) == 1:
+        y_train_tensor = y_train_tensor.unsqueeze(1)
+    
+    X_val_tensor = torch.FloatTensor(X_val_norm).to(device)
+    y_val_tensor = torch.FloatTensor(y_val_norm).to(device)
+    if len(y_val_tensor.shape) == 1:
+        y_val_tensor = y_val_tensor.unsqueeze(1)
+    
+    # Create model
+    model = LinearRegressionModel(X_train_norm.shape[1], y_train_tensor.shape[1]).to(device)
+    
+    # Create dataloader
+    dataset = TensorDataset(X_train_tensor, y_train_tensor)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    
+    # Optimizer and loss
+    optimizer = Adam(model.parameters(), lr=learning_rate)
+    criterion = nn.MSELoss()
+    
+    # Training loop
+    best_loss = float('inf')
+    patience_counter = 0
+    
+    for epoch in range(max_iter):
+        total_loss = 0
+        for batch_X, batch_y in dataloader:
+            optimizer.zero_grad()
+            y_pred = model(batch_X)
+            loss = criterion(y_pred, batch_y)
+            
+            # L2 regularization
+            l2_reg = 0
+            for param in model.parameters():
+                l2_reg += torch.sum(param ** 2)
+            loss += alpha * l2_reg
+            
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            total_loss += loss.item()
+        
+        avg_loss = total_loss / len(dataloader)
+        
+        # Early stopping
+        if epoch >= min_iter - 1:
+            if avg_loss < best_loss - early_stopping_tol:
+                best_loss = avg_loss
+                patience_counter = 0
+            else:
+                patience_counter += 1
+        else:
+            best_loss = min(best_loss, avg_loss)
+        
+        if patience_counter >= early_stopping_patience and epoch >= min_iter - 1:
+            break
+    
+    # Evaluate on validation set
+    model.eval()
+    with torch.no_grad():
+        y_val_pred_norm = model(X_val_tensor).cpu().numpy()
+    
+    # Inverse transform back to original scale
+    y_val_pred = y_scaler.inverse_transform(y_val_pred_norm)
+    
+    # Calculate R² score
+    fold_score = r2_score(y_val, y_val_pred)
+    
+    return fold_score
 
 
 class LinearRegressionModel(nn.Module):
@@ -283,9 +374,9 @@ class SGDEncoder():
         
         return y_pred
     
-    def cross_validate(self, X, y, cv=5, scoring='r2', verbose=False):
+    def cross_validate(self, X, y, cv=5, scoring='r2', verbose=False, n_jobs=-1):
         """
-        Performs cross-validation on the model.
+        Performs cross-validation on the model (parallelized across folds).
 
         Parameters:
         X (array-like): Feature vectors.
@@ -293,16 +384,17 @@ class SGDEncoder():
         cv (int): Number of cross-validation folds.
         scoring (str): Scoring metric (default: 'r2').
         verbose (bool): Print progress.
+        n_jobs (int): Number of parallel jobs (-1 for all CPUs).
 
         Returns:
         dict: Cross-validation scores.
         """
-        scores = []
         n_samples = len(X)
         fold_size = n_samples // cv
         
+        # Prepare fold data
+        folds = []
         for fold in range(cv):
-            # Create fold indices
             test_start = fold * fold_size
             test_end = test_start + fold_size if fold < cv - 1 else n_samples
             
@@ -311,16 +403,15 @@ class SGDEncoder():
             y_train = np.vstack([y[:test_start], y[test_end:]]) if len(y.shape) > 1 else np.concatenate([y[:test_start], y[test_end:]])
             y_val = y[test_start:test_end]
             
-            # Train and score
-            self.fit(X_train, y_train, verbose=verbose)
-            y_pred = self.predict(X_val)
-            
-            if len(y_val.shape) == 1:
-                fold_score = r2_score(y_val, y_pred)
-            else:
-                fold_score = r2_score(y_val, y_pred)
-            
-            scores.append(fold_score)
+            folds.append((X_train, X_val, y_train, y_val))
+        
+        # Parallel CV training
+        scores = Parallel(n_jobs=n_jobs, backend='threading')(delayed(_train_and_score_fold)(
+            X_train, X_val, y_train, y_val,
+            self.alpha, self.learning_rate, self.batch_size,
+            self.max_iter, self.min_iter, self.early_stopping_patience, self.early_stopping_tol,
+            self.random_state, verbose=verbose
+        ) for X_train, X_val, y_train, y_val in folds)
         
         self.cv_results_ = {
             'scores': np.array(scores),
@@ -329,9 +420,9 @@ class SGDEncoder():
         }
         return self.cv_results_
     
-    def select_hyperparams(self, X, y, alphas=None, cv=5, scoring='r2', verbose=False):
+    def select_hyperparams(self, X, y, alphas=None, cv=5, scoring='r2', verbose=False, n_jobs=-1):
         """
-        Performs hyperparameter selection using cross-validation.
+        Performs hyperparameter selection using cross-validation (parallelized across alphas).
 
         Parameters:
         X (array-like): Feature vectors.
@@ -340,6 +431,7 @@ class SGDEncoder():
         cv (int): Number of cross-validation folds.
         scoring (str): Scoring metric (default: 'r2').
         verbose (bool): Print progress.
+        n_jobs (int): Number of parallel jobs for alpha search (-1 for all CPUs).
 
         Returns:
         dict: Best parameters and corresponding score.
@@ -348,18 +440,33 @@ class SGDEncoder():
             # Stronger regularization to prevent overfitting with high-dim features
             alphas = [1e-3, 1e-2, 1e-1, 1, 10]
         
+        # Helper function for parallel alpha evaluation
+        def evaluate_alpha(alpha):
+            temp_encoder = SGDEncoder(
+                alpha=alpha,
+                max_iter=self.max_iter,
+                min_iter=self.min_iter,
+                batch_size=self.batch_size,
+                learning_rate=self.learning_rate,
+                early_stopping_patience=self.early_stopping_patience,
+                early_stopping_tol=self.early_stopping_tol,
+                random_state=self.random_state
+            )
+            cv_results = temp_encoder.cross_validate(X, y, cv=cv, scoring=scoring, verbose=False, n_jobs=1)
+            return alpha, cv_results['mean'], cv_results['std'], cv_results
+        
+        # Parallel alpha search
+        results = Parallel(n_jobs=n_jobs, backend='threading')(delayed(evaluate_alpha)(alpha) for alpha in alphas)
+        
         best_score = -np.inf
         best_alpha = None
         all_scores = {}
         
-        for alpha in alphas:
-            self.alpha = alpha
-            cv_results = self.cross_validate(X, y, cv=cv, scoring=scoring, verbose=verbose)
-            mean_score = cv_results['mean']
+        for alpha, mean_score, std_score, cv_results in results:
             all_scores[alpha] = mean_score
             
             if verbose:
-                print(f"  Alpha {alpha:.1e}: CV R² = {mean_score:.4f} ± {cv_results['std']:.4f}")
+                print(f"  Alpha {alpha:.1e}: CV R² = {mean_score:.4f} ± {std_score:.4f}")
             
             if mean_score > best_score:
                 best_score = mean_score
@@ -374,7 +481,7 @@ class SGDEncoder():
             'cv_results': all_scores
         }
     
-    def fit_and_evaluate(self, dataset, alphas=None, cv=5, val_size=0.2, scoring='r2', verbose=False):
+    def fit_and_evaluate(self, dataset, alphas=None, cv=5, val_size=0.2, scoring='r2', verbose=False, n_jobs=-1):
         """
         Fit and evaluate model on a ModelBrainDataset with GPU acceleration.
         
@@ -412,7 +519,7 @@ class SGDEncoder():
             print("Selecting hyperparameters...")
         hp_results = self.select_hyperparams(
             X_train_val, y_train_val,
-            alphas=alphas, cv=cv, scoring=scoring, verbose=verbose
+            alphas=alphas, cv=cv, scoring=scoring, verbose=verbose, n_jobs=n_jobs
         )
         
         # Refit on full train+val
