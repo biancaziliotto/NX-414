@@ -46,7 +46,7 @@ class ModelBrainDataset():
 
     def _load_activations(self, stimuli_ids, layer):
         """
-        Loads model activations for the given stimuli (parallel).
+        Loads model activations for the given stimuli.
 
         Parameters:
         stimuli_ids (array-like): Stimuli identifiers/indices.
@@ -58,17 +58,14 @@ class ModelBrainDataset():
         """
          
         activations_file = h5py.File(self.activations_path, "r")
-        layers = list(activations_file["features"].keys())
         
         feat_ids = list(activations_file["ids"])
         id_to_feat_idx = {id_: i for i, id_ in enumerate(feat_ids)}
         feat_idx = np.array([id_to_feat_idx[x] for x in stimuli_ids])
 
         layer_act = activations_file["features"][layer]
-        activations_list = [layer_act[feat_id, :] for feat_id in feat_idx]
+        X = layer_act[feat_idx, :]
         
-        # Stack all activations
-        X = np.vstack(activations_list)
         return X
 
     def get_data(self):
@@ -374,23 +371,85 @@ class SGDEncoder():
             'cv_results': all_scores
         }
     
-    def fit_and_evaluate(self, dataset, alphas=None, cv=5, val_size=0.2, scoring='r2', verbose=False):
+    def select_hyperparams_simple(self, X, y, val_size=0.2, alphas=None, scoring='r2', verbose=False):
+        """
+        Performs hyperparameter selection using a simple train-validation split (no cross-validation).
+        This is faster than cross-validation but uses less data for training.
+        
+        Parameters:
+        X (array-like): Feature vectors.
+        y (array-like): Target values (n_samples,) or (n_samples, n_units).
+        val_size (float): Proportion of data to use for validation.
+        alphas (array-like): Alpha values to search. Default: [1e-3, 1e-2, 1e-1, 1, 10].
+        scoring (str): Scoring metric (default: 'r2').
+        verbose (bool): Print progress.
+        
+        Returns:
+        dict: Best parameters and corresponding score.
+        """
+        if alphas is None:
+            alphas = [1e-3, 1e-2, 1e-1, 1, 10]
+        
+        # Simple train-val split
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y, test_size=val_size, random_state=self.random_state
+        )
+        
+        best_score = -np.inf
+        best_alpha = None
+        all_scores = {}
+        
+        for alpha in alphas:
+            self.alpha = alpha
+            # Train on split
+            self.fit(X_train, y_train, verbose=False)
+            # Evaluate on validation
+            y_pred = self.predict(X_val)
+            
+            if scoring == 'r2':
+                score = r2_score(y_val, y_pred)
+            elif scoring == 'mse':
+                score = -mean_squared_error(y_val, y_pred)  # negative for consistency
+            else:
+                score = r2_score(y_val, y_pred)
+            
+            all_scores[alpha] = score
+            
+            if verbose:
+                print(f"  Alpha {alpha:.1e}: Val R² = {score:.4f}")
+            
+            if score > best_score:
+                best_score = score
+                best_alpha = alpha
+        
+        self.best_alpha_ = best_alpha
+        self.alpha = best_alpha
+        
+        return {
+            'best_alpha': best_alpha,
+            'best_score': best_score,
+            'cv_results': all_scores
+        }
+    
+    def fit_and_evaluate(self, dataset, alphas=None, cv=5, val_size=0.2, scoring='r2', verbose=False, use_cv=True):
         """
         Fit and evaluate model on a ModelBrainDataset with GPU acceleration.
         
         Workflow:
         1. Split training data into train+val
-        2. Select hyperparameters using cross-validation
+        2. Select hyperparameters using cross-validation or simple train-val split
         3. Refit on full train+val
         4. Evaluate on held-out test set
 
         Parameters:
         dataset (ModelBrainDataset): Dataset with pre-separated train and test splits.
         alphas (array-like): Alpha values to search. If None, uses defaults.
-        cv (int): Number of cross-validation folds for hyperparameter selection.
+        cv (int): Number of cross-validation folds (used only if use_cv=True).
         val_size (float): Proportion of training data for validation.
         scoring (str): Scoring metric (default: 'r2').
         verbose (bool): Print progress.
+        use_cv (bool): If True, uses cross-validation for hyperparameter selection.
+                       If False, uses simple train-val split (faster). Default: True.
 
         Returns:
         dict: Results including best_alpha, cv_score, r2_test, mse_test, predictions.
@@ -407,13 +466,23 @@ class SGDEncoder():
         X_test = dataset.X_test
         y_test = dataset.y_test
         
-        # Select hyperparameters on train+val (no test leakage)
+        # Select hyperparameters using chosen method
         if verbose:
-            print("Selecting hyperparameters...")
-        hp_results = self.select_hyperparams(
-            X_train_val, y_train_val,
-            alphas=alphas, cv=cv, scoring=scoring, verbose=verbose
-        )
+            if use_cv:
+                print(f"Selecting hyperparameters with {cv}-fold cross-validation...")
+            else:
+                print("Selecting hyperparameters with simple train-val split...")
+        
+        if use_cv:
+            hp_results = self.select_hyperparams(
+                X_train_val, y_train_val,
+                alphas=alphas, cv=cv, scoring=scoring, verbose=verbose
+            )
+        else:
+            hp_results = self.select_hyperparams_simple(
+                X_train_val, y_train_val,
+                val_size=val_size, alphas=alphas, scoring=scoring, verbose=verbose
+            )
         
         # Refit on full train+val
         if verbose:

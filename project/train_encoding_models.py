@@ -116,7 +116,7 @@ def get_model_layers(model_name, dataset_name):
 
 def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, layer_name, subject=None, 
                        max_epochs=500, min_epochs=20, patience=10, tolerance=1e-5, 
-                       batch_size=256, learning_rate=0.001, verbose=True):
+                       batch_size=256, learning_rate=0.001, use_cv=True, verbose=True):
     """
     Train and evaluate an encoding model for a single layer.
     
@@ -133,6 +133,8 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     tolerance (float): Tolerance for convergence detection
     batch_size (int): Batch size for training
     learning_rate (float): Learning rate for optimizer
+    use_cv (bool): If True, uses cross-validation for hyperparameter selection.
+                   If False, uses simple train-val split (faster).
     verbose (bool): Print progress and results
     
     Returns:
@@ -188,9 +190,12 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         random_state=42
     )
     
-    # Fit and evaluate with hyperparameter selection via cross-validation
+    # Fit and evaluate with hyperparameter selection
     if verbose:
-        print(f"Training with hyperparameter selection (3-fold CV)...")
+        if use_cv:
+            print(f"Training with hyperparameter selection (3-fold CV)...")
+        else:
+            print(f"Training with hyperparameter selection (train-val split)...")
         print(f"  Testing regularization: [0.01, 0.1, 0.2]")
     validation_folds = 3
     training_start = time.time()
@@ -200,7 +205,8 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         cv=validation_folds,
         val_size=1/validation_folds,
         scoring='r2',
-        verbose=verbose
+        verbose=verbose,
+        use_cv=use_cv
     )
     timings['training_and_evaluation'] = time.time() - training_start
     
@@ -374,6 +380,10 @@ Examples:
         '--learning-rate', type=float, default=0.0001,
         help='Learning rate for optimizer (default: 0.0001)'
     )
+    parser.add_argument(
+        '--use-cv', type=bool, default=True,
+        help='Use cross-validation for hyperparameter selection (default: True). Set to False for simple train-val split (faster).'
+    )
     
     args = parser.parse_args()
     
@@ -431,6 +441,7 @@ Examples:
                 tolerance=args.tolerance,
                 batch_size=args.batch_size,
                 learning_rate=args.learning_rate,
+                use_cv=args.use_cv,
                 verbose=args.verbose
             )
             all_results.append(results)
