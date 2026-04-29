@@ -444,6 +444,362 @@ def best_layer_table(df):
     best = df.loc[idx, ["model", "target", "metric", "layer", "score"]]
     return best.sort_values(["metric", "model", "target"]).reset_index(drop=True)
 
+
+def plot_model_comparison(
+    df: pd.DataFrame,
+    targets: list = None,
+    title_prefix: str = "",
+    save_path: str = None,
+):
+    """
+    Grouped bar chart comparing best-layer RSA and CKA scores between models.
+
+    For each target (ROI / dataset), the best-layer score is taken per model,
+    so each model is summarised by a single value per target rather than a
+    curve over layers. This is the direct head-to-head comparison.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Output of scores_to_dataframe; columns [model, target, layer, metric, score].
+    targets : list, optional
+        Targets to include and their plotting order. Defaults to all targets in df.
+    title_prefix : str
+        Prepended to subplot titles.
+    save_path : str, optional
+        If provided, saves the figure to this path.
+    """
+    best = best_layer_table(df)
+    if targets is None:
+        targets = list(dict.fromkeys(best["target"].tolist()))
+    else:
+        best = best[best["target"].isin(targets)]
+
+    models = sorted(best["model"].unique())
+    x = np.arange(len(targets))
+    width = 0.8 / max(len(models), 1)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    for ax, metric in zip(axes, ["RSA", "CKA"]):
+        sub = best[best["metric"] == metric]
+        for i, model in enumerate(models):
+            scores = []
+            for t in targets:
+                row = sub[(sub["model"] == model) & (sub["target"] == t)]
+                scores.append(row["score"].values[0] if len(row) else np.nan)
+            offset = (i - (len(models) - 1) / 2) * width
+            ax.bar(x + offset, scores, width, label=model)
+        ax.set_xticks(x)
+        ax.set_xticklabels(targets)
+        prefix = f"{title_prefix}, " if title_prefix else ""
+        ax.set_title(f"{prefix}best-layer {metric} per target")
+        ax.set_ylabel("Score")
+        ax.legend()
+
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    return fig
+
+
+def compute_eeg_timeresolved(
+    models_features: dict,
+    eeg_data: np.ndarray,
+    rsa: RepresentationalSimilarityAnalysis = None,
+    cka: CenteredKernelAlignment = None,
+) -> dict:
+    """
+    Best-layer RSA and CKA scores across EEG time points, per model.
+
+    For each time point t, slices the EEG response matrix
+    Y_t = eeg_data[:, :, t] of shape (n_stimuli, n_channels), runs RSA and CKA
+    against every layer of each model, and keeps the maximum score.
+
+    Parameters
+    ----------
+    models_features : dict
+        {model_name: {layer_name: np.ndarray (n_stimuli, n_features)}}
+    eeg_data : np.ndarray
+        Shape (n_stimuli, n_channels, n_timepoints).
+    rsa, cka : metric instances, optional
+        Pre-built instances; defaults are created if missing.
+
+    Returns
+    -------
+    dict
+        {model_name: {'RSA': np.ndarray (n_timepoints,),
+                      'CKA': np.ndarray (n_timepoints,)}}
+    """
+    if rsa is None:
+        rsa = RepresentationalSimilarityAnalysis()
+    if cka is None:
+        cka = CenteredKernelAlignment()
+
+    n_timepoints = eeg_data.shape[2]
+    results = {}
+
+    for model_name, layer_features in models_features.items():
+        rsa_best = np.empty(n_timepoints)
+        cka_best = np.empty(n_timepoints)
+        for t in range(n_timepoints):
+            Y_t = eeg_data[:, :, t]
+            scores = compute_layer_scores(layer_features, Y_t, rsa=rsa, cka=cka)
+            rsa_best[t] = max(scores["RSA"].values())
+            cka_best[t] = max(scores["CKA"].values())
+        results[model_name] = {"RSA": rsa_best, "CKA": cka_best}
+
+    return results
+
+
+def plot_eeg_timeresolved(
+    time_scores: dict,
+    time_ms: np.ndarray,
+    title_prefix: str = "",
+    save_path: str = None,
+):
+    """
+    Plot best-layer RSA and CKA over EEG time, with both models on the same axes.
+
+    Parameters
+    ----------
+    time_scores : dict
+        Output of compute_eeg_timeresolved.
+    time_ms : np.ndarray
+        Time axis in milliseconds, length n_timepoints.
+    title_prefix : str
+        Prepended to subplot titles.
+    save_path : str, optional
+        If provided, saves the figure.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    for ax, metric in zip(axes, ["RSA", "CKA"]):
+        for model_name, scores in time_scores.items():
+            ax.plot(time_ms, scores[metric], marker="", label=model_name)
+        ax.axvline(0, color="gray", linestyle="--", alpha=0.5)
+        ax.set_xlabel("Time after stimulus onset (ms)")
+        ax.set_ylabel(f"Best-layer {metric}")
+        prefix = f"{title_prefix}, " if title_prefix else ""
+        ax.set_title(f"{prefix}EEG time-resolved {metric}")
+        ax.legend()
+
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    return fig
+
+
+def load_eeg_test(eeg_path: str, subject: str = "sub-01", region: str = "temporal"):
+    """
+    Load EEG test responses and stimulus IDs for one (subject, region).
+
+    Returns
+    -------
+    eeg_data : np.ndarray, shape (n_stimuli, n_channels, n_timepoints)
+    eeg_ids  : np.ndarray, shape (n_stimuli,) — stimulus identifiers
+    """
+    with h5py.File(eeg_path, "r") as f:
+        eeg_ids  = f["test/stimulus_ids"][:]
+        eeg_data = f[f"test/neural_data/{subject}/{region}"][:]
+    return eeg_data, eeg_ids
+
+
+def load_nsd_test(nsd_path: str, subject: str = "subj01", rois: list = None):
+    """
+    Load NSD test responses and stimulus IDs for one subject across several ROIs.
+
+    Parameters
+    ----------
+    nsd_path : str
+        Path to nsd_func1pt8mm_individualROIs.h5
+    subject : str
+        Subject key (e.g. "subj01").
+    rois : list, optional
+        ROI names. Defaults to early-/mid-/high-level ventral stream:
+        ["V1v", "hV4", "ventral"].
+
+    Returns
+    -------
+    nsd_rois : dict
+        {roi_name: np.ndarray (n_stimuli, n_voxels)}
+    nsd_ids : np.ndarray, shape (n_stimuli,)
+        Subject-specific NSD integer stimulus IDs.
+    """
+    if rois is None:
+        rois = ["V1v", "hV4", "ventral"]
+    with h5py.File(nsd_path, "r") as f:
+        nsd_ids  = f[f"test/stimulus_ids/{subject}"][:]
+        nsd_rois = {roi: f[f"test/neural_data/{subject}/{roi}"][:] for roi in rois}
+    return nsd_rois, nsd_ids
+
+
+# Multi-subject helpers
+
+def average_scores_df(per_subject_dfs: dict) -> pd.DataFrame:
+    """
+    Average alignment scores across subjects.
+
+    Parameters
+    ----------
+    per_subject_dfs : dict
+        {subject_name: DataFrame} where each DataFrame has columns
+        [model, target, layer, metric, score] (output of scores_to_dataframe).
+
+    Returns
+    -------
+    pd.DataFrame
+        Same columns, scores averaged across subjects.
+    """
+    combined = pd.concat(
+        [df.assign(subject=sub) for sub, df in per_subject_dfs.items()],
+        ignore_index=True,
+    )
+    return (
+        combined
+        .groupby(["model", "target", "layer", "metric"], as_index=False)["score"]
+        .mean()
+    )
+
+
+def average_timeresolved(per_subject_scores: dict) -> dict:
+    """
+    Average EEG time-resolved scores across subjects.
+
+    Parameters
+    ----------
+    per_subject_scores : dict
+        {subject: {model: {'RSA': array, 'CKA': array}}}
+
+    Returns
+    -------
+    dict
+        {model: {'RSA': array, 'CKA': array}} averaged across subjects.
+    """
+    subjects = list(per_subject_scores.keys())
+    models   = list(per_subject_scores[subjects[0]].keys())
+    return {
+        model: {
+            metric: np.mean(
+                [per_subject_scores[s][model][metric] for s in subjects], axis=0
+            )
+            for metric in ("RSA", "CKA")
+        }
+        for model in models
+    }
+
+
+def tvsd_alignment_multisubject(
+    tvsd_path: str,
+    rois: list,
+    resnet_path: str,
+    qwen_path: str,
+    monkeys: list = None,
+    rsa: RepresentationalSimilarityAnalysis = None,
+    cka: CenteredKernelAlignment = None,
+):
+    """
+    Run RSA/CKA alignment for each TVSD monkey across the given ROIs.
+
+    TVSD test stimulus IDs are shared across monkeys, so model features are
+    loaded once and reused.
+
+    Returns
+    -------
+    per_monkey : dict {monkey: DataFrame}
+    df_avg     : DataFrame averaged across monkeys
+    """
+    if monkeys is None:
+        monkeys = ["monkeyF", "monkeyN"]
+    with h5py.File(tvsd_path, "r") as f:
+        ids = f["test/stimulus_ids"][:]
+    resnet_layers = load_features(resnet_path, ids)
+    qwen_layers   = load_features(qwen_path,   ids)
+
+    per_monkey = {}
+    with h5py.File(tvsd_path, "r") as f:
+        for m in monkeys:
+            roi_data = {r: f[f"test/neural_data/{m}/{r}"][:] for r in rois}
+            res = compare_models_and_targets(
+                {"ResNet": resnet_layers, "Qwen": qwen_layers},
+                roi_data, rsa=rsa, cka=cka,
+            )
+            per_monkey[m] = scores_to_dataframe(res)
+    return per_monkey, average_scores_df(per_monkey)
+
+
+def nsd_alignment_multisubject(
+    nsd_path: str,
+    rois: list,
+    resnet_path: str,
+    qwen_path: str,
+    subjects: list = None,
+    rsa: RepresentationalSimilarityAnalysis = None,
+    cka: CenteredKernelAlignment = None,
+):
+    """
+    Run RSA/CKA alignment for each NSD subject. Each subject has its own
+    stimulus subset, so features are reloaded per subject.
+
+    Returns
+    -------
+    per_subject : dict {subject: DataFrame}
+    df_avg      : DataFrame averaged across subjects
+    """
+    if subjects is None:
+        subjects = [f"subj0{i}" for i in range(1, 9)]
+
+    per_subject = {}
+    for s in subjects:
+        roi_data, ids = load_nsd_test(nsd_path, subject=s, rois=rois)
+        resnet_layers = load_features(resnet_path, ids)
+        qwen_layers   = load_features(qwen_path,   ids)
+        res = compare_models_and_targets(
+            {"ResNet": resnet_layers, "Qwen": qwen_layers},
+            roi_data, rsa=rsa, cka=cka,
+        )
+        per_subject[s] = scores_to_dataframe(res)
+    return per_subject, average_scores_df(per_subject)
+
+
+def eeg_timeresolved_multisubject(
+    eeg_path: str,
+    region: str,
+    resnet_path: str,
+    qwen_path: str,
+    subjects: list = None,
+    rsa: RepresentationalSimilarityAnalysis = None,
+    cka: CenteredKernelAlignment = None,
+):
+    """
+    Run EEG time-resolved alignment for each subject. Stimulus IDs are shared
+    across EEG subjects, so model features are loaded once.
+
+    Returns
+    -------
+    per_subject : dict {subject: {model: {'RSA': array, 'CKA': array}}}
+    avg_scores  : {model: {'RSA': array, 'CKA': array}} averaged across subjects
+    n_timepoints : int
+    """
+    if subjects is None:
+        subjects = [f"sub-{i:02d}" for i in range(1, 11)]
+
+    with h5py.File(eeg_path, "r") as f:
+        ids = f["test/stimulus_ids"][:]
+    resnet_layers = load_features(resnet_path, ids)
+    qwen_layers   = load_features(qwen_path,   ids)
+
+    per_subject  = {}
+    n_timepoints = None
+    with h5py.File(eeg_path, "r") as f:
+        for s in subjects:
+            eeg_data = f[f"test/neural_data/{s}/{region}"][:]
+            n_timepoints = eeg_data.shape[2]
+            per_subject[s] = compute_eeg_timeresolved(
+                {"ResNet": resnet_layers, "Qwen": qwen_layers},
+                eeg_data, rsa=rsa, cka=cka,
+            )
+    return per_subject, average_timeresolved(per_subject), n_timepoints
+
+
 def load_features(feat_path, neural_ids):
     with h5py.File(feat_path, "r") as f:
         feat_ids  = f["ids"][:]
