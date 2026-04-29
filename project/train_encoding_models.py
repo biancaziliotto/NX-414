@@ -249,7 +249,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         'y_train_shape': dataset.y_train.shape,
         'y_test_shape': dataset.y_test.shape,
         'best_alpha': results['best_alpha'],
-        'cv_score_mean': results['cv_score'],
+        'hp_score': results['hp_score'],
         'r2_mean': np.mean(r2_scores),
         'r2_std': np.std(r2_scores),
         'r2_median': np.median(r2_scores),
@@ -265,7 +265,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     if verbose:
         print(f"\nResults for {layer_name}:")
         print(f"  Best Alpha: {layer_results['best_alpha']:.1e}")
-        print(f"  CV R² Score: {layer_results['cv_score_mean']:.4f}")
+        print(f"  HP Selection R²: {layer_results['hp_score']:.4f}")
         print(f"  Test R² Mean: {layer_results['r2_mean']:.4f} ± {layer_results['r2_std']:.4f}")
         print(f"  Test R² Range: [{layer_results['r2_min']:.4f}, {layer_results['r2_max']:.4f}]")
         print(f"  Test MSE Mean: {layer_results['mse_mean']:.4f} ± {layer_results['mse_std']:.4f}")
@@ -450,7 +450,7 @@ Examples:
             with open(txt_file, 'a') as f:
                 f.write(f"Layer: {results['layer']}\n")
                 f.write(f"  Best Alpha: {results['best_alpha']:.1e}\n")
-                f.write(f"  CV R² Score: {results['cv_score_mean']:.4f}\n")
+                f.write(f"  HP Selection R²: {results['hp_score']:.4f}\n")
                 f.write(f"  Test R² Mean: {results['r2_mean']:.4f} ± {results['r2_std']:.4f}\n")
                 f.write(f"  Test R² Range: [{results['r2_min']:.4f}, {results['r2_max']:.4f}]\n")
                 f.write(f"  Test R² Median: {results['r2_median']:.4f}\n")

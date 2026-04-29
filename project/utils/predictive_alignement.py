@@ -509,7 +509,7 @@ class SGDEncoder():
         
         return {
             'best_alpha': hp_results['best_alpha'],
-            'cv_score': hp_results['best_score'],
+            'hp_score': hp_results['best_score'],
             'r2_test': r2_test,
             'mse_test': mse_test,
             'y_pred_test': y_pred_test,
