@@ -154,6 +154,7 @@ for model in "${MODELS[@]}"; do
                     --dataset '$DATASET' \
                     --subject '$subject' \
                     --roi '$roi' \
+                    --use_cv False \
                     --verbose"
                 
                 # Show command in dry-run mode
