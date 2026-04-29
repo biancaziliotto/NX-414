@@ -14,7 +14,7 @@ class ModelBrainDataset():
     Loads model activations for given stimuli and pairs them with neural responses.
     Assumes train and test sets are already separated.
     """
-    def __init__(self, y_train, y_test, stimuli_train, stimuli_test, model_name, dataset_name):
+    def __init__(self, y_train, y_test, stimuli_train, stimuli_test, model_name, dataset_name, layer_name):
         """
         Initializes the dataset by loading model activations for provided stimuli.
 
@@ -24,7 +24,8 @@ class ModelBrainDataset():
         stimuli_train (array-like): Stimuli identifiers/indices for training (n_train_samples,).
         stimuli_test (array-like): Stimuli identifiers/indices for test (n_test_samples,).
         model_name (str): Name of the model (used to locate activations).
-        activations_path (str): Path for loading activations."
+        activations_path (str): Path for loading activations.
+        layer_name (str): Name of layer.
         """
         self.y_train = y_train
         self.y_test = y_test
@@ -35,15 +36,15 @@ class ModelBrainDataset():
         self.activations_path = f"/shared/NX-414/extracted_features/{model_name}/{dataset_name}.h5"
         
         # Load activations
-        self.X_train = self._load_activations(stimuli_train)
-        self.X_test = self._load_activations(stimuli_test)
+        self.X_train = self._load_activations(stimuli_train, layer_name)
+        self.X_test = self._load_activations(stimuli_test, layer_name)
         
         self.X_val = None
         self.y_val = None
         self.X_train_split = None
         self.y_train_split = None
 
-    def _load_activations(self, stimuli_ids):
+    def _load_activations(self, stimuli_ids, layer):
         """
         Loads model activations for the given stimuli (parallel).
 
@@ -59,16 +60,15 @@ class ModelBrainDataset():
         activations_file = h5py.File(self.activations_path, "r")
         layers = list(activations_file["features"].keys())
         
-        activation_indexes = list(activations_file["ids"])
-        data_indexes = [activation_indexes.index(stimulus_id) for stimulus_id in stimuli_ids]      
+        feat_ids = list(activations_file["ids"])
+        id_to_feat_idx = {id_: i for i, id_ in enumerate(feat_ids)}
+        feat_idx = np.array([id_to_feat_idx[x] for x in stimuli_ids])
 
-        layer_act = activations_file["features"][layers[0]]
-        print(len(activation_indexes))
-        activations_list = [layer_act[data_idx, :] for data_idx in data_indexes]
+        layer_act = activations_file["features"][layer]
+        activations_list = [layer_act[feat_id, :] for feat_id in feat_idx]
         
         # Stack all activations
         X = np.vstack(activations_list)
-        print(X.shape)
         return X
 
     def get_data(self):
@@ -247,7 +247,7 @@ class SGDEncoder():
             else:
                 best_loss = min(best_loss, avg_loss)
             
-            if verbose and (epoch + 1) % max(1, self.max_iter // 20) == 0:
+            if verbose and (epoch + 1) % max(1, self.max_iter // 50) == 0:
                 print(f"  Epoch {epoch + 1}/{self.max_iter}, Loss: {avg_loss:.6f}")
             
             # Stop if converged (only after min_iter epochs)

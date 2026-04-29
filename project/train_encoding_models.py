@@ -154,7 +154,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     dataset = ModelBrainDataset(
         y_train=y_train, y_test=y_test,
         stimuli_train=stimuli_train, stimuli_test=stimuli_test,
-        model_name=model_name, dataset_name=dataset_name
+        model_name=model_name, dataset_name=dataset_name, layer_name=layer_name
     )
     
     if verbose:
@@ -178,13 +178,14 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     
     # Fit and evaluate with hyperparameter selection via cross-validation
     if verbose:
-        print(f"Training with hyperparameter selection (5-fold CV)...")
-        print(f"  Testing STRONGER regularization: [1e-3, 1e-2, 1e-1, 1, 10]")
+        print(f"Training with hyperparameter selection (3-fold CV)...")
+        print(f"  Testing regularization: [0.01, 0.1, 0.2]")
+    validation_folds = 3
     results = encoder.fit_and_evaluate(
         dataset,
-        alphas=[1e-3, 1e-2, 1e-1, 1, 10],  # STRONG regularization!
-        cv=5,
-        val_size=0.2,
+        alphas=[0.01, 0.1, 0.2],
+        cv=validation_folds,
+        val_size=1/validation_folds,
         scoring='r2',
         verbose=verbose
     )
@@ -313,11 +314,11 @@ Examples:
         help='Maximum number of training epochs (default: 1000 - allow longer training)'
     )
     parser.add_argument(
-        '--min-epochs', type=int, default=100,
+        '--min-epochs', type=int, default=20,
         help='Minimum number of epochs before early stopping allowed (default: 100 - let model train more)'
     )
     parser.add_argument(
-        '--patience', type=int, default=15,
+        '--patience', type=int, default=10,
         help='Number of epochs with no improvement before early stopping (default: 15)'
     )
     parser.add_argument(
@@ -325,12 +326,12 @@ Examples:
         help='Tolerance for convergence detection (default: 1e-4 - less strict)'
     )
     parser.add_argument(
-        '--batch-size', type=int, default=256,
-        help='Batch size for training (default: 256)'
+        '--batch-size', type=int, default=2048,
+        help='Batch size for training (default: 2048)'
     )
     parser.add_argument(
-        '--learning-rate', type=float, default=0.001,
-        help='Learning rate for optimizer (default: 0.001)'
+        '--learning-rate', type=float, default=0.0001,
+        help='Learning rate for optimizer (default: 0.0001)'
     )
     
     args = parser.parse_args()
