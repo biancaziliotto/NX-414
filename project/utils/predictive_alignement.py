@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.linear_model import SGDRegressor
+from sklearn.multioutput import MultiOutputRegressor
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import r2_score, mean_squared_error
@@ -116,6 +117,7 @@ class ModelBrainDataset():
 class SGDEncoder():
     """
     Linear Encoding Model using Stochastic Gradient Descent (SGD).
+    Supports multi-output regression for multiple neural units.
     """
     def __init__(self, alpha=0.0001, max_iter=1000, tol=1e-3, random_state=42):
         """
@@ -131,13 +133,15 @@ class SGDEncoder():
         self.max_iter = max_iter
         self.tol = tol
         self.random_state = random_state
-        self.model = SGDRegressor(
-            alpha=self.alpha,
-            max_iter=self.max_iter,
-            tol=self.tol,
-            random_state=self.random_state,
-            n_jobs=-1,
-            verbose=0
+        self.model = MultiOutputRegressor(
+            SGDRegressor(
+                alpha=self.alpha,
+                max_iter=self.max_iter,
+                tol=self.tol,
+                random_state=self.random_state,
+                verbose=0
+            ),
+            n_jobs=-1
         )
         self.cv_results_ = None
         self.best_alpha_ = None
@@ -148,7 +152,7 @@ class SGDEncoder():
 
         Parameters:
         X (array-like): Feature vectors (n_samples, n_features).
-        y (array-like): Target values (n_samples, n_uni).
+        y (array-like): Target values (n_samples,) or (n_samples, n_units) for multi-output.
         """
         self.model.fit(X, y)
 
@@ -160,7 +164,7 @@ class SGDEncoder():
         X (array-like): Feature vectors (n_samples, n_features).
 
         Returns:
-        array-like: Predicted values.
+        array-like: Predicted values (n_samples,) or (n_samples, n_units) for multi-output.
         """
         return self.model.predict(X)
     
@@ -170,7 +174,7 @@ class SGDEncoder():
 
         Parameters:
         X (array-like): Feature vectors.
-        y (array-like): Target values.
+        y (array-like): Target values (n_samples,) or (n_samples, n_units).
         cv (int): Number of cross-validation folds.
         scoring (str): Scoring metric (default: 'r2').
 
@@ -191,7 +195,7 @@ class SGDEncoder():
 
         Parameters:
         X (array-like): Feature vectors.
-        y (array-like): Target values.
+        y (array-like): Target values (n_samples,) or (n_samples, n_units).
         alphas (array-like): Alpha values to search. Default: [1e-5, 1e-4, 1e-3, 1e-2, 1e-1].
         cv (int): Number of cross-validation folds.
         scoring (str): Scoring metric (default: 'r2').
@@ -202,22 +206,28 @@ class SGDEncoder():
         if alphas is None:
             alphas = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
         
-        param_grid = {'alpha': alphas}
+        param_grid = {'estimator__alpha': alphas}
         grid_search = GridSearchCV(
-            SGDRegressor(max_iter=self.max_iter, tol=self.tol, random_state=self.random_state),
+            MultiOutputRegressor(
+                SGDRegressor(max_iter=self.max_iter, tol=self.tol, random_state=self.random_state),
+                n_jobs=-1
+            ),
             param_grid,
             cv=cv,
             scoring=scoring,
-            n_jobs=-1
+            n_jobs=1  # Use n_jobs=1 for grid search when MultiOutputRegressor already uses n_jobs=-1
         )
         grid_search.fit(X, y)
         
-        self.best_alpha_ = grid_search.best_params_['alpha']
-        self.model = SGDRegressor(
-            alpha=self.best_alpha_,
-            max_iter=self.max_iter,
-            tol=self.tol,
-            random_state=self.random_state,
+        self.best_alpha_ = grid_search.best_params_['estimator__alpha']
+        self.model = MultiOutputRegressor(
+            SGDRegressor(
+                alpha=self.best_alpha_,
+                max_iter=self.max_iter,
+                tol=self.tol,
+                random_state=self.random_state,
+                verbose=0
+            ),
             n_jobs=-1
         )
         self.model.fit(X, y)
