@@ -5,6 +5,7 @@ from torch.optim import Adam
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.preprocessing import StandardScaler
 import h5py
 
 class ModelBrainDataset():
@@ -131,7 +132,7 @@ class SGDEncoder():
     Linear Encoding Model using PyTorch with GPU acceleration.
     Supports multi-output regression for multiple neural units.
     """
-    def __init__(self, alpha=0.0001, max_iter=1000, batch_size=32, learning_rate=0.01, random_state=42):
+    def __init__(self, alpha=0.0001, max_iter=1000, batch_size=32, learning_rate=0.001, random_state=42):
         """
         Initializes the SGDEncoder with GPU support.
 
@@ -139,7 +140,7 @@ class SGDEncoder():
         alpha (float): L2 regularization strength (default: 0.0001).
         max_iter (int): Maximum number of iterations/epochs.
         batch_size (int): Batch size for training.
-        learning_rate (float): Learning rate for the optimizer.
+        learning_rate (float): Learning rate for the optimizer (default: 0.001 for stability).
         random_state (int): Random seed for reproducibility.
         """
         self.alpha = alpha
@@ -151,6 +152,8 @@ class SGDEncoder():
         self.model = None
         self.best_alpha_ = None
         self.cv_results_ = None
+        self.X_scaler = None
+        self.y_scaler = None
         
         if torch.cuda.is_available():
             print(f"✓ GPU available: {torch.cuda.get_device_name(0)}")
@@ -164,7 +167,7 @@ class SGDEncoder():
 
     def fit(self, X, y, batch_size=None, verbose=False):
         """
-        Fits the model to the training data on GPU.
+        Fits the model to the training data on GPU with data normalization.
 
         Parameters:
         X (array-like): Feature vectors (n_samples, n_features).
@@ -175,15 +178,23 @@ class SGDEncoder():
         if batch_size is None:
             batch_size = self.batch_size
         
+        # Normalize data for numerical stability
+        if verbose:
+            print("  Normalizing data...")
+        self.X_scaler = StandardScaler()
+        self.y_scaler = StandardScaler()
+        X_normalized = self.X_scaler.fit_transform(X)
+        y_normalized = self.y_scaler.fit_transform(y)
+        
         # Convert to PyTorch tensors
-        X_tensor = torch.FloatTensor(X).to(self.device)
-        y_tensor = torch.FloatTensor(y).to(self.device)
+        X_tensor = torch.FloatTensor(X_normalized).to(self.device)
+        y_tensor = torch.FloatTensor(y_normalized).to(self.device)
         
         if len(y_tensor.shape) == 1:
             y_tensor = y_tensor.unsqueeze(1)
         
         # Create model
-        self.model = self._create_model(X.shape[1], y_tensor.shape[1])
+        self.model = self._create_model(X_normalized.shape[1], y_tensor.shape[1])
         
         # Create dataset and dataloader
         dataset = TensorDataset(X_tensor, y_tensor)
@@ -208,6 +219,8 @@ class SGDEncoder():
                 loss += self.alpha * l2_reg
                 
                 loss.backward()
+                # Gradient clipping for stability
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 optimizer.step()
                 total_loss += loss.item()
             
@@ -217,6 +230,7 @@ class SGDEncoder():
     def predict(self, X):
         """
         Predicts target values using the fitted model.
+        Applies inverse normalization to return predictions in original scale.
 
         Parameters:
         X (array-like): Feature vectors (n_samples, n_features).
@@ -228,10 +242,15 @@ class SGDEncoder():
             raise ValueError("Model not fitted yet. Call fit() first.")
         
         self.model.eval()
-        X_tensor = torch.FloatTensor(X).to(self.device)
+        # Normalize input
+        X_normalized = self.X_scaler.transform(X)
+        X_tensor = torch.FloatTensor(X_normalized).to(self.device)
         
         with torch.no_grad():
-            y_pred = self.model(X_tensor).cpu().numpy()
+            y_pred_normalized = self.model(X_tensor).cpu().numpy()
+        
+        # Inverse normalize predictions
+        y_pred = self.y_scaler.inverse_transform(y_pred_normalized)
         
         return y_pred
     

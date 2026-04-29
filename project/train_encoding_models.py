@@ -161,12 +161,12 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     
     # Train encoder with batch processing and GPU acceleration
     if verbose:
-        print(f"Initializing GPU-accelerated encoder...")
-    encoder = SGDEncoder(alpha=0.0001, max_iter=100, batch_size=256, learning_rate=0.01, random_state=42)
+        print(f"Initializing GPU-accelerated encoder with data normalization...")
+    encoder = SGDEncoder(alpha=0.0001, max_iter=100, batch_size=256, learning_rate=0.001, random_state=42)
     
     # Fit with verbose output to see training progress
     if verbose:
-        print(f"Training encoder on GPU (batch_size=256)...")
+        print(f"Training encoder on GPU (batch_size=256, lr=0.001)...")
     encoder.fit(X_train, y_train, batch_size=256, verbose=verbose)
     
     # Evaluate on test set
