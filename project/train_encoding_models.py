@@ -179,9 +179,10 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     # Fit and evaluate with hyperparameter selection via cross-validation
     if verbose:
         print(f"Training with hyperparameter selection (5-fold CV)...")
+        print(f"  Testing STRONGER regularization: [1e-3, 1e-2, 1e-1, 1, 10]")
     results = encoder.fit_and_evaluate(
         dataset,
-        alphas=[1e-6, 1e-5, 1e-4, 1e-3, 1e-2],
+        alphas=[1e-3, 1e-2, 1e-1, 1, 10],  # STRONG regularization!
         cv=5,
         val_size=0.2,
         scoring='r2',
@@ -230,6 +231,16 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         print(f"  Test R² Range: [{layer_results['r2_min']:.4f}, {layer_results['r2_max']:.4f}]")
         print(f"  Test MSE Mean: {layer_results['mse_mean']:.4f} ± {layer_results['mse_std']:.4f}")
         print(f"  Units analyzed: {layer_results['n_units']}")
+        
+        # Diagnostic: Count negative R²
+        n_negative = np.sum(np.array(r2_scores) < 0)
+        if n_negative > 0:
+            pct_negative = 100 * n_negative / len(r2_scores)
+            print(f"  ⚠️  WARNING: {n_negative}/{len(r2_scores)} units ({pct_negative:.1f}%) have NEGATIVE R²")
+            print(f"     (Model worse than predicting mean)")
+            print(f"     REC: Try higher alpha, more epochs, or check data quality")
+        else:
+            print(f"  ✓ All units have positive R²")
     
     return layer_results
 
@@ -298,20 +309,20 @@ Examples:
         help='Directory to save results (default: ./results)'
     )
     parser.add_argument(
-        '--max-epochs', type=int, default=500,
-        help='Maximum number of training epochs (default: 500)'
+        '--max-epochs', type=int, default=1000,
+        help='Maximum number of training epochs (default: 1000 - allow longer training)'
     )
     parser.add_argument(
-        '--min-epochs', type=int, default=20,
-        help='Minimum number of epochs before early stopping allowed (default: 20)'
+        '--min-epochs', type=int, default=100,
+        help='Minimum number of epochs before early stopping allowed (default: 100 - let model train more)'
     )
     parser.add_argument(
-        '--patience', type=int, default=10,
-        help='Number of epochs with no improvement before early stopping (default: 10)'
+        '--patience', type=int, default=15,
+        help='Number of epochs with no improvement before early stopping (default: 15)'
     )
     parser.add_argument(
-        '--tolerance', type=float, default=1e-5,
-        help='Tolerance for convergence detection (default: 1e-5)'
+        '--tolerance', type=float, default=1e-4,
+        help='Tolerance for convergence detection (default: 1e-4 - less strict)'
     )
     parser.add_argument(
         '--batch-size', type=int, default=256,

@@ -345,7 +345,8 @@ class SGDEncoder():
         dict: Best parameters and corresponding score.
         """
         if alphas is None:
-            alphas = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
+            # Stronger regularization to prevent overfitting with high-dim features
+            alphas = [1e-3, 1e-2, 1e-1, 1, 10]
         
         best_score = -np.inf
         best_alpha = None
