@@ -15,32 +15,52 @@ import json
 import sys
 from sklearn.metrics import r2_score, mean_squared_error
 from utils.predictive_alignement import ModelBrainDataset, SGDEncoder
+from utils.inspection_utils import load_tsvd_dataset, load_eeg2_dataset, load_nsd_dataset
 
 
-def load_neural_data(dataset_name, roi):
+def load_neural_data(dataset_name, roi, subject=None):
     """
-    Load neural response data for the given dataset and ROI.
+    Load neural response data for the given dataset, subject, and ROI.
     
-    Assumes neural data is stored in: /shared/NX-414/neural_data/{dataset_name}/{roi}.h5
-    Structure should have 'train_indices', 'test_indices', 'y_train', 'y_test'
+    Uses specialized loader functions based on dataset type:
+    - TVSD (macaque): load_tsvd_dataset
+    - EEG2 (human EEG): load_eeg2_dataset
+    - NSD (human fMRI): load_nsd_dataset
     
     Parameters:
-    dataset_name (str): Name of the dataset
+    dataset_name (str): Dataset name ("TVSD", "EEG2"/"things_eeg2", or "NSD")
     roi (str): Region of interest (ROI) name
+    subject (str): Subject identifier. Defaults per dataset if None:
+                   - TVSD: "monkeyF"
+                   - EEG2: "sub-01"
+                   - NSD: "subj01"
     
     Returns:
     tuple: (y_train, y_test, stimuli_train, stimuli_test)
     """
-    neural_path = f"/shared/NX-414/neural_data/{dataset_name}/{roi}.h5"
+    # Normalize dataset name
+    dataset_lower = dataset_name.lower()
     
-    if not Path(neural_path).exists():
-        raise FileNotFoundError(f"Neural data not found at {neural_path}")
-    
-    with h5py.File(neural_path, 'r') as f:
-        y_train = np.array(f['y_train'])
-        y_test = np.array(f['y_test'])
-        stimuli_train = np.array(f['stimuli_train'])
-        stimuli_test = np.array(f['stimuli_test'])
+    if dataset_lower in ["tvsd", "things_tvsd"]:
+        if subject is None:
+            subject = "monkeyF"
+        y_train, stimuli_train = load_tsvd_dataset(split="train", subject=subject, roi=roi)
+        y_test, stimuli_test = load_tsvd_dataset(split="test", subject=subject, roi=roi)
+        
+    elif dataset_lower in ["eeg2", "things_eeg2"]:
+        if subject is None:
+            subject = "sub-01"
+        y_train, stimuli_train = load_eeg2_dataset(split="train", subject=subject, roi=roi)
+        y_test, stimuli_test = load_eeg2_dataset(split="test", subject=subject, roi=roi)
+        
+    elif dataset_lower in ["nsd"]:
+        if subject is None:
+            subject = "subj01"
+        y_train, stimuli_train = load_nsd_dataset(split="train", subject=subject, roi=roi)
+        y_test, stimuli_test = load_nsd_dataset(split="test", subject=subject, roi=roi)
+        
+    else:
+        raise ValueError(f"Unknown dataset: {dataset_name}. Must be one of: TVSD, EEG2, NSD")
     
     return y_train, y_test, stimuli_train, stimuli_test
 
@@ -90,7 +110,7 @@ def get_model_layers(model_name, dataset_name):
     return layers
 
 
-def train_layer_encoder(model_name, dataset_name, roi, layer_name, verbose=True):
+def train_layer_encoder(model_name, dataset_name, roi, layer_name, subject=None, verbose=True):
     """
     Train and evaluate an encoding model for a single layer.
     
@@ -99,6 +119,7 @@ def train_layer_encoder(model_name, dataset_name, roi, layer_name, verbose=True)
     dataset_name (str): Name of the dataset  
     roi (str): Region of interest
     layer_name (str): Name of the layer
+    subject (str): Subject identifier (optional, defaults per dataset)
     verbose (bool): Print progress and results
     
     Returns:
@@ -111,8 +132,8 @@ def train_layer_encoder(model_name, dataset_name, roi, layer_name, verbose=True)
     
     # Load neural data
     if verbose:
-        print(f"Loading neural data for ROI: {roi}...")
-    y_train, y_test, stimuli_train, stimuli_test = load_neural_data(dataset_name, roi)
+        print(f"Loading neural data for ROI: {roi} (subject: {subject or 'default'})...")
+    y_train, y_test, stimuli_train, stimuli_test = load_neural_data(dataset_name, roi, subject=subject)
     if verbose:
         print(f"  Neural data shapes - y_train: {y_train.shape}, y_test: {y_test.shape}")
     
@@ -194,9 +215,29 @@ def main():
         description="Train encoding models for neural data using model activations.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Dataset names:
+  - "TVSD" or "things_tvsd": macaque electrophysiology (THINGS dataset)
+  - "EEG2" or "things_eeg2": human EEG responses (THINGS dataset)  
+  - "NSD": human fMRI data
+
 Examples:
-  python train_encoding_models.py --model Qwen3-VL-2B-Instruct --dataset things_stimuli --roi IT --verbose
-  python train_encoding_models.py --model ViT-L-14 --dataset things_stimuli --roi V1 --no-save
+  # TVSD (macaque IT) - uses default monkeyF
+  python train_encoding_models.py --model Qwen3-VL-2B-Instruct --dataset TVSD --roi IT --verbose
+  
+  # TVSD with monkeyN
+  python train_encoding_models.py --model Qwen3-VL-2B-Instruct --dataset TVSD --roi V1 --subject monkeyN --verbose
+  
+  # EEG2 (human) - uses default sub-01
+  python train_encoding_models.py --model ViT-L-14 --dataset EEG2 --roi occipital_parietal --verbose
+  
+  # EEG2 with different subject
+  python train_encoding_models.py --model ViT-L-14 --dataset EEG2 --roi occipital --subject sub-05 --verbose
+  
+  # NSD (fMRI) - uses default subj01
+  python train_encoding_models.py --model Qwen3-VL-2B-Instruct --dataset NSD --roi V1d --verbose
+  
+  # NSD with different subject
+  python train_encoding_models.py --model Qwen3-VL-2B-Instruct --dataset NSD --roi V1v --subject subj03 --verbose
         """
     )
     
@@ -206,11 +247,15 @@ Examples:
     )
     parser.add_argument(
         '--dataset', type=str, required=True,
-        help='Dataset name (e.g., "things_stimuli", "coco")'
+        help='Dataset name (TVSD, EEG2, or NSD)'
     )
     parser.add_argument(
         '--roi', type=str, required=True,
         help='Target ROI (e.g., "IT", "V1", "V4")'
+    )
+    parser.add_argument(
+        '--subject', type=str, default=None,
+        help='Subject identifier (optional, defaults per dataset: monkeyF for TVSD, sub-01 for EEG2, subj01 for NSD)'
     )
     parser.add_argument(
         '--verbose', action='store_true',
@@ -235,6 +280,7 @@ Examples:
         print(f"Model: {args.model}")
         print(f"Dataset: {args.dataset}")
         print(f"ROI: {args.roi}")
+        print(f"Subject: {args.subject or 'default'}")
         print(f"Verbose: {args.verbose}")
         print("="*70)
     
@@ -253,7 +299,8 @@ Examples:
                 print(f"\n[{i}/{len(layers)}]", end=" ")
             
             results = train_layer_encoder(
-                args.model, args.dataset, args.roi, layer, 
+                args.model, args.dataset, args.roi, layer,
+                subject=args.subject,
                 verbose=args.verbose
             )
             all_results.append(results)
@@ -273,7 +320,8 @@ Examples:
             output_dir = Path(args.output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
             
-            output_file = output_dir / f"{args.model}_{args.dataset}_{args.roi}_results.json"
+            subject_str = f"_{args.subject}" if args.subject else ""
+            output_file = output_dir / f"{args.model}_{args.dataset}_{args.roi}{subject_str}_results.json"
             with open(output_file, 'w') as f:
                 json.dump(all_results, f, indent=2)
             
