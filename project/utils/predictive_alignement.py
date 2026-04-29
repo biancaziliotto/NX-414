@@ -1,8 +1,9 @@
 import numpy as np
-from sklearn.linear_model import SGDRegressor
-from sklearn.multioutput import MultiOutputRegressor
-from sklearn.model_selection import cross_val_score, train_test_split
-from sklearn.model_selection import GridSearchCV
+import torch
+import torch.nn as nn
+from torch.optim import Adam
+from torch.utils.data import TensorDataset, DataLoader
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
 import h5py
 
@@ -114,56 +115,104 @@ class ModelBrainDataset():
         """
         return len(self.X_train)
 
+
+class LinearRegressionModel(nn.Module):
+    """Simple linear regression model for GPU acceleration."""
+    def __init__(self, n_features, n_outputs):
+        super().__init__()
+        self.linear = nn.Linear(n_features, n_outputs)
+    
+    def forward(self, x):
+        return self.linear(x)
+
+
 class SGDEncoder():
     """
-    Linear Encoding Model using Stochastic Gradient Descent (SGD).
+    Linear Encoding Model using PyTorch with GPU acceleration.
     Supports multi-output regression for multiple neural units.
     """
-    def __init__(self, alpha=0.0001, max_iter=1000, tol=1e-3, random_state=42):
+    def __init__(self, alpha=0.0001, max_iter=1000, batch_size=32, learning_rate=0.01, random_state=42):
         """
-        Initializes the SGDEncoder.
+        Initializes the SGDEncoder with GPU support.
 
         Parameters:
         alpha (float): L2 regularization strength (default: 0.0001).
-        max_iter (int): Maximum number of iterations.
-        tol (float): Stopping criterion tolerance.
+        max_iter (int): Maximum number of iterations/epochs.
+        batch_size (int): Batch size for training.
+        learning_rate (float): Learning rate for the optimizer.
         random_state (int): Random seed for reproducibility.
         """
         self.alpha = alpha
         self.max_iter = max_iter
-        self.tol = tol
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
         self.random_state = random_state
-        self.model = MultiOutputRegressor(
-            SGDRegressor(
-                alpha=self.alpha,
-                max_iter=self.max_iter,
-                tol=self.tol,
-                random_state=self.random_state,
-                verbose=0
-            ),
-            n_jobs=-1
-        )
-        self.cv_results_ = None
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model = None
         self.best_alpha_ = None
+        self.cv_results_ = None
+        
+        if torch.cuda.is_available():
+            print(f"✓ GPU available: {torch.cuda.get_device_name(0)}")
+        else:
+            print("⚠ GPU not available, using CPU")
 
-    def fit(self, X, y, batch_size=None):
+    def _create_model(self, n_features, n_outputs):
+        """Create a fresh model instance."""
+        model = LinearRegressionModel(n_features, n_outputs).to(self.device)
+        return model
+
+    def fit(self, X, y, batch_size=None, verbose=False):
         """
-        Fits the model to the training data.
-        For large datasets, uses incremental learning (partial_fit).
+        Fits the model to the training data on GPU.
 
         Parameters:
         X (array-like): Feature vectors (n_samples, n_features).
         y (array-like): Target values (n_samples,) or (n_samples, n_units) for multi-output.
-        batch_size (int): If set, uses partial_fit with batches to reduce memory. Default: None (standard fit).
+        batch_size (int): Batch size for training. If None, uses self.batch_size.
+        verbose (bool): Print training progress.
         """
         if batch_size is None:
-            self.model.fit(X, y)
-        else:
-            # Use incremental learning for large datasets
-            for i in range(0, len(X), batch_size):
-                X_batch = X[i:i+batch_size]
-                y_batch = y[i:i+batch_size]
-                self.model.partial_fit(X_batch, y_batch)
+            batch_size = self.batch_size
+        
+        # Convert to PyTorch tensors
+        X_tensor = torch.FloatTensor(X).to(self.device)
+        y_tensor = torch.FloatTensor(y).to(self.device)
+        
+        if len(y_tensor.shape) == 1:
+            y_tensor = y_tensor.unsqueeze(1)
+        
+        # Create model
+        self.model = self._create_model(X.shape[1], y_tensor.shape[1])
+        
+        # Create dataset and dataloader
+        dataset = TensorDataset(X_tensor, y_tensor)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        
+        # Optimizer and loss
+        optimizer = Adam(self.model.parameters(), lr=self.learning_rate)
+        criterion = nn.MSELoss()
+        
+        # Training loop
+        for epoch in range(self.max_iter):
+            total_loss = 0
+            for batch_X, batch_y in dataloader:
+                optimizer.zero_grad()
+                y_pred = self.model(batch_X)
+                loss = criterion(y_pred, batch_y)
+                
+                # Add L2 regularization
+                l2_reg = 0
+                for param in self.model.parameters():
+                    l2_reg += torch.sum(param ** 2)
+                loss += self.alpha * l2_reg
+                
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item()
+            
+            if verbose and (epoch + 1) % max(1, self.max_iter // 10) == 0:
+                print(f"  Epoch {epoch + 1}/{self.max_iter}, Loss: {total_loss / len(dataloader):.6f}")
 
     def predict(self, X):
         """
@@ -175,9 +224,18 @@ class SGDEncoder():
         Returns:
         array-like: Predicted values (n_samples,) or (n_samples, n_units) for multi-output.
         """
-        return self.model.predict(X)
+        if self.model is None:
+            raise ValueError("Model not fitted yet. Call fit() first.")
+        
+        self.model.eval()
+        X_tensor = torch.FloatTensor(X).to(self.device)
+        
+        with torch.no_grad():
+            y_pred = self.model(X_tensor).cpu().numpy()
+        
+        return y_pred
     
-    def cross_validate(self, X, y, cv=5, scoring='r2'):
+    def cross_validate(self, X, y, cv=5, scoring='r2', verbose=False):
         """
         Performs cross-validation on the model.
 
@@ -186,21 +244,46 @@ class SGDEncoder():
         y (array-like): Target values (n_samples,) or (n_samples, n_units).
         cv (int): Number of cross-validation folds.
         scoring (str): Scoring metric (default: 'r2').
+        verbose (bool): Print progress.
 
         Returns:
         dict: Cross-validation scores.
         """
-        scores = cross_val_score(self.model, X, y, cv=cv, scoring=scoring)
+        scores = []
+        n_samples = len(X)
+        fold_size = n_samples // cv
+        
+        for fold in range(cv):
+            # Create fold indices
+            test_start = fold * fold_size
+            test_end = test_start + fold_size if fold < cv - 1 else n_samples
+            
+            X_train = np.vstack([X[:test_start], X[test_end:]])
+            X_val = X[test_start:test_end]
+            y_train = np.vstack([y[:test_start], y[test_end:]]) if len(y.shape) > 1 else np.concatenate([y[:test_start], y[test_end:]])
+            y_val = y[test_start:test_end]
+            
+            # Train and score
+            self.fit(X_train, y_train, verbose=False)
+            y_pred = self.predict(X_val)
+            
+            if len(y_val.shape) == 1:
+                fold_score = r2_score(y_val, y_pred)
+            else:
+                fold_score = r2_score(y_val, y_pred)
+            
+            scores.append(fold_score)
+        
         self.cv_results_ = {
-            'scores': scores,
+            'scores': np.array(scores),
             'mean': np.mean(scores),
             'std': np.std(scores)
         }
         return self.cv_results_
     
-    def select_hyperparams(self, X, y, alphas=None, cv=5, scoring='r2'):
+    def select_hyperparams(self, X, y, alphas=None, cv=5, scoring='r2', verbose=False):
         """
-        Performs hyperparameter selection using cross-validation (Grid Search).
+        Performs hyperparameter selection using cross-validation.
 
         Parameters:
         X (array-like): Feature vectors.
@@ -208,6 +291,7 @@ class SGDEncoder():
         alphas (array-like): Alpha values to search. Default: [1e-5, 1e-4, 1e-3, 1e-2, 1e-1].
         cv (int): Number of cross-validation folds.
         scoring (str): Scoring metric (default: 'r2').
+        verbose (bool): Print progress.
 
         Returns:
         dict: Best parameters and corresponding score.
@@ -215,45 +299,39 @@ class SGDEncoder():
         if alphas is None:
             alphas = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
         
-        param_grid = {'estimator__alpha': alphas}
-        grid_search = GridSearchCV(
-            MultiOutputRegressor(
-                SGDRegressor(max_iter=self.max_iter, tol=self.tol, random_state=self.random_state),
-                n_jobs=4
-            ),
-            param_grid,
-            cv=cv,
-            scoring=scoring,
-            n_jobs=1  # Use n_jobs=1 for grid search when MultiOutputRegressor already uses n_jobs=4
-        )
-        grid_search.fit(X, y)
+        best_score = -np.inf
+        best_alpha = None
+        all_scores = {}
         
-        self.best_alpha_ = grid_search.best_params_['estimator__alpha']
-        self.model = MultiOutputRegressor(
-            SGDRegressor(
-                alpha=self.best_alpha_,
-                max_iter=self.max_iter,
-                tol=self.tol,
-                random_state=self.random_state,
-                verbose=0
-            ),
-            n_jobs=4
-        )
-        self.model.fit(X, y)
+        for alpha in alphas:
+            self.alpha = alpha
+            cv_results = self.cross_validate(X, y, cv=cv, scoring=scoring, verbose=False)
+            mean_score = cv_results['mean']
+            all_scores[alpha] = mean_score
+            
+            if verbose:
+                print(f"  Alpha {alpha:.1e}: CV R² = {mean_score:.4f} ± {cv_results['std']:.4f}")
+            
+            if mean_score > best_score:
+                best_score = mean_score
+                best_alpha = alpha
+        
+        self.best_alpha_ = best_alpha
+        self.alpha = best_alpha
         
         return {
-            'best_alpha': self.best_alpha_,
-            'best_score': grid_search.best_score_,
-            'cv_results': grid_search.cv_results_
+            'best_alpha': best_alpha,
+            'best_score': best_score,
+            'cv_results': all_scores
         }
     
-    def fit_and_evaluate(self, dataset, alphas=None, cv=5, val_size=0.2, scoring='r2'):
+    def fit_and_evaluate(self, dataset, alphas=None, cv=5, val_size=0.2, scoring='r2', verbose=False):
         """
-        Fit and evaluate model on a ModelBrainDataset.
+        Fit and evaluate model on a ModelBrainDataset with GPU acceleration.
         
         Workflow:
         1. Split training data into train+val
-        2. Select hyperparameters using cross-validation (no test data)
+        2. Select hyperparameters using cross-validation
         3. Refit on full train+val
         4. Evaluate on held-out test set
 
@@ -263,6 +341,7 @@ class SGDEncoder():
         cv (int): Number of cross-validation folds for hyperparameter selection.
         val_size (float): Proportion of training data for validation.
         scoring (str): Scoring metric (default: 'r2').
+        verbose (bool): Print progress.
 
         Returns:
         dict: Results including best_alpha, cv_score, r2_test, mse_test, predictions.
@@ -280,12 +359,21 @@ class SGDEncoder():
         y_test = dataset.y_test
         
         # Select hyperparameters on train+val (no test leakage)
+        if verbose:
+            print("Selecting hyperparameters...")
         hp_results = self.select_hyperparams(
             X_train_val, y_train_val,
-            alphas=alphas, cv=cv, scoring=scoring
+            alphas=alphas, cv=cv, scoring=scoring, verbose=verbose
         )
         
+        # Refit on full train+val
+        if verbose:
+            print(f"Refitting with best alpha={hp_results['best_alpha']:.1e}...")
+        self.fit(X_train_val, y_train_val, verbose=verbose)
+        
         # Evaluate on test set
+        if verbose:
+            print("Evaluating on test set...")
         y_pred_test = self.predict(X_test)
         r2_test = r2_score(y_test, y_pred_test)
         mse_test = mean_squared_error(y_test, y_pred_test)
@@ -298,4 +386,3 @@ class SGDEncoder():
             'y_pred_test': y_pred_test,
             'y_test': y_test
         }
-

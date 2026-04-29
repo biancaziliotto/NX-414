@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 """
-Training script for encoding models across layers.
-Trains linear encoders for each layer of a model on neural data.
+Training script for encoding models across layers with GPU acceleration.
+Trains GPU-accelerated linear encoders for each layer of a model on neural data.
+
+Uses PyTorch with CUDA support for fast training on large feature sets.
 
 Usage:
-    python train_encoding_models.py --model Qwen3-VL-2B-Instruct --dataset things_stimuli --roi IT --verbose
+    python train_encoding_models.py --model Qwen3-VL-2B-Instruct --neural_dataset TVSD --dataset things_stimuli --roi IT --verbose
 """
 
 import argparse
@@ -18,7 +20,7 @@ from utils.predictive_alignement import ModelBrainDataset, SGDEncoder
 from utils.inspection_utils import load_tsvd_dataset, load_eeg2_dataset, load_nsd_dataset
 
 
-def load_neural_data(dataset_name, roi, subject=None):
+def load_neural_data(neural_dataset_name, roi, subject=None):
     """
     Load neural response data for the given dataset, subject, and ROI.
     
@@ -28,7 +30,7 @@ def load_neural_data(dataset_name, roi, subject=None):
     - NSD (human fMRI): load_nsd_dataset
     
     Parameters:
-    dataset_name (str): Dataset name ("TVSD", "EEG2"/"things_eeg2", or "NSD")
+    neural_dataset_name (str): Dataset name ("TVSD", "EEG2"/"things_eeg2", or "NSD")
     roi (str): Region of interest (ROI) name
     subject (str): Subject identifier. Defaults per dataset if None:
                    - TVSD: "monkeyF"
@@ -39,7 +41,7 @@ def load_neural_data(dataset_name, roi, subject=None):
     tuple: (y_train, y_test, stimuli_train, stimuli_test)
     """
     # Normalize dataset name
-    dataset_lower = dataset_name.lower()
+    dataset_lower = neural_dataset_name.lower()
     
     if dataset_lower in ["tvsd", "things_tvsd"]:
         if subject is None:
@@ -60,7 +62,7 @@ def load_neural_data(dataset_name, roi, subject=None):
         y_test, stimuli_test = load_nsd_dataset(split="test", subject=subject, roi=roi)
         
     else:
-        raise ValueError(f"Unknown dataset: {dataset_name}. Must be one of: TVSD, EEG2, NSD")
+        raise ValueError(f"Unknown dataset: {neural_dataset_name}. Must be one of: TVSD, EEG2, NSD")
     
     return y_train, y_test, stimuli_train, stimuli_test
 
@@ -110,13 +112,14 @@ def get_model_layers(model_name, dataset_name):
     return layers
 
 
-def train_layer_encoder(model_name, dataset_name, roi, layer_name, subject=None, verbose=True):
+def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, layer_name, subject=None, verbose=True):
     """
     Train and evaluate an encoding model for a single layer.
     
     Parameters:
     model_name (str): Name of the model
     dataset_name (str): Name of the dataset  
+    neural_dataset_name (str): Name of the neural dataset
     roi (str): Region of interest
     layer_name (str): Name of the layer
     subject (str): Subject identifier (optional, defaults per dataset)
@@ -133,7 +136,7 @@ def train_layer_encoder(model_name, dataset_name, roi, layer_name, subject=None,
     # Load neural data
     if verbose:
         print(f"Loading neural data for ROI: {roi} (subject: {subject or 'default'})...")
-    y_train, y_test, stimuli_train, stimuli_test = load_neural_data(dataset_name, roi, subject=subject)
+    y_train, y_test, stimuli_train, stimuli_test = load_neural_data(neural_dataset_name, roi, subject=subject)
     if verbose:
         print(f"  Neural data shapes - y_train: {y_train.shape}, y_test: {y_test.shape}")
     
@@ -156,15 +159,15 @@ def train_layer_encoder(model_name, dataset_name, roi, layer_name, subject=None,
         print(f"  Feature shapes - X_train: {X_train.shape}, X_test: {X_test.shape}")
         print(f"  Target shapes - y_train: {y_train.shape}, y_test: {y_test.shape}")
     
-    # Train encoder with validation split
+    # Train encoder with batch processing and GPU acceleration
     if verbose:
-        print(f"Initializing encoder...")
-    encoder = SGDEncoder(alpha=0.0001, max_iter=1000, random_state=42)
+        print(f"Initializing GPU-accelerated encoder...")
+    encoder = SGDEncoder(alpha=0.0001, max_iter=100, batch_size=256, learning_rate=0.01, random_state=42)
     
-    # Fit with batch processing for memory efficiency
+    # Fit with verbose output to see training progress
     if verbose:
-        print(f"Training encoder (batch_size=1000)...")
-    encoder.fit(X_train, y_train, batch_size=1000)
+        print(f"Training encoder on GPU (batch_size=256)...")
+    encoder.fit(X_train, y_train, batch_size=256, verbose=verbose)
     
     # Evaluate on test set
     if verbose:
@@ -246,8 +249,12 @@ Examples:
         help='Model name (e.g., "Qwen3-VL-2B-Instruct", "ViT-L-14")'
     )
     parser.add_argument(
-        '--dataset', type=str, required=True,
+        '--neural_dataset', type=str, required=True,
         help='Dataset name (TVSD, EEG2, or NSD)'
+    )
+    parser.add_argument(
+        '--dataset', type=str, required=True,
+        help='Stimuli dataset name (e.g., "things_stimuli")'
     )
     parser.add_argument(
         '--roi', type=str, required=True,
@@ -299,7 +306,7 @@ Examples:
                 print(f"\n[{i}/{len(layers)}]", end=" ")
             
             results = train_layer_encoder(
-                args.model, args.dataset, args.roi, layer,
+                args.model, args.dataset, args.neural_dataset, args.roi, layer,
                 subject=args.subject,
                 verbose=args.verbose
             )
