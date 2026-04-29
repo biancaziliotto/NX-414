@@ -15,6 +15,8 @@ import h5py
 from pathlib import Path
 import json
 import sys
+import time
+import torch
 from sklearn.metrics import r2_score, mean_squared_error
 from utils.predictive_alignement import ModelBrainDataset, SGDEncoder
 from utils.inspection_utils import load_tsvd_dataset, load_eeg2_dataset, load_nsd_dataset
@@ -141,25 +143,35 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         print(f"Processing Layer: {layer_name}")
         print(f"{'='*70}")
     
+    # Track timings
+    timings = {}
+    layer_start_time = time.time()
+    
     # Load neural data
     if verbose:
         print(f"Loading neural data for ROI: {roi} (subject: {subject or 'default'})...")
+    data_load_start = time.time()
     y_train, y_test, stimuli_train, stimuli_test = load_neural_data(neural_dataset_name, roi, subject=subject)
+    timings['data_loading'] = time.time() - data_load_start
     if verbose:
         print(f"  Neural data shapes - y_train: {y_train.shape}, y_test: {y_test.shape}")
+        print(f"  ⏱  Data loading: {timings['data_loading']:.2f}s")
     
     # Create ModelBrainDataset for proper train/test/val management
     if verbose:
         print(f"Creating dataset...")
+    dataset_create_start = time.time()
     dataset = ModelBrainDataset(
         y_train=y_train, y_test=y_test,
         stimuli_train=stimuli_train, stimuli_test=stimuli_test,
         model_name=model_name, dataset_name=dataset_name, layer_name=layer_name
     )
+    timings['dataset_creation'] = time.time() - dataset_create_start
     
     if verbose:
         print(f"  Feature shapes - X_train: {dataset.X_train.shape}, X_test: {dataset.X_test.shape}")
         print(f"  Target shapes - y_train: {dataset.y_train.shape}, y_test: {dataset.y_test.shape}")
+        print(f"  ⏱  Dataset creation: {timings['dataset_creation']:.2f}s")
     
     # Initialize encoder with GPU acceleration
     if verbose:
@@ -181,6 +193,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         print(f"Training with hyperparameter selection (3-fold CV)...")
         print(f"  Testing regularization: [0.01, 0.1, 0.2]")
     validation_folds = 3
+    training_start = time.time()
     results = encoder.fit_and_evaluate(
         dataset,
         alphas=[0.01, 0.1, 0.2],
@@ -189,11 +202,24 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         scoring='r2',
         verbose=verbose
     )
+    timings['training_and_evaluation'] = time.time() - training_start
     
     y_pred = results['y_pred_test']
     y_test = results['y_test']
     
+    # Save model weights to encoders folder
+    encoders_dir = Path("encoders") / model_name / dataset_name / neural_dataset_name / roi
+    if subject:
+        encoders_dir = encoders_dir / subject
+    encoders_dir.mkdir(parents=True, exist_ok=True)
+    
+    weights_file = encoders_dir / f"{layer_name}.pth"
+    torch.save(encoder.model.state_dict(), weights_file)
+    if verbose:
+        print(f"  Saved model weights to: {weights_file}")
+    
     # Calculate metrics per unit (voxel/neuron)
+    metrics_start = time.time()
     r2_scores = []
     mse_scores = []
     
@@ -202,6 +228,9 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         mse = mean_squared_error(y_test[:, i], y_pred[:, i])
         r2_scores.append(r2)
         mse_scores.append(mse)
+    timings['metrics_calculation'] = time.time() - metrics_start
+    
+    timings['total'] = time.time() - layer_start_time
     
     layer_results = {
         'layer': layer_name,
@@ -222,7 +251,9 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         'r2_max': np.max(r2_scores),
         'mse_mean': np.mean(mse_scores),
         'mse_std': np.std(mse_scores),
-        'n_units': len(r2_scores)
+        'n_units': len(r2_scores),
+        'timings': timings,
+        'weights_file': str(weights_file)
     }
     
     if verbose:
@@ -243,6 +274,15 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
             print(f"     REC: Try higher alpha, more epochs, or check data quality")
         else:
             print(f"  ✓ All units have positive R²")
+        
+        # Timing summary
+        print(f"\n  ⏱  TIMING BREAKDOWN:")
+        print(f"     Data loading:              {timings['data_loading']:.2f}s ({100*timings['data_loading']/timings['total']:.1f}%)")
+        print(f"     Dataset creation:          {timings['dataset_creation']:.2f}s ({100*timings['dataset_creation']/timings['total']:.1f}%)")
+        print(f"     Training & evaluation:     {timings['training_and_evaluation']:.2f}s ({100*timings['training_and_evaluation']/timings['total']:.1f}%)")
+        print(f"     Metrics calculation:       {timings['metrics_calculation']:.2f}s ({100*timings['metrics_calculation']/timings['total']:.1f}%)")
+        print(f"     ════════════════════════")
+        print(f"     TOTAL:                     {timings['total']:.2f}s")
     
     return layer_results
 
@@ -407,6 +447,17 @@ Examples:
                 f.write(f"  Units analyzed: {results['n_units']}\n")
                 f.write(f"  X shape: {results['X_train_shape']} → {results['X_test_shape']}\n")
                 f.write(f"  y shape: {results['y_train_shape']} → {results['y_test_shape']}\n")
+                f.write(f"  Model weights saved to: {results['weights_file']}\n")
+                f.write(f"\n")
+                # Timing info
+                if 'timings' in results:
+                    timings = results['timings']
+                    f.write(f"  TIMING BREAKDOWN:\n")
+                    f.write(f"    Data loading:         {timings['data_loading']:.2f}s ({100*timings['data_loading']/timings['total']:.1f}%)\n")
+                    f.write(f"    Dataset creation:     {timings['dataset_creation']:.2f}s ({100*timings['dataset_creation']/timings['total']:.1f}%)\n")
+                    f.write(f"    Training & eval:      {timings['training_and_evaluation']:.2f}s ({100*timings['training_and_evaluation']/timings['total']:.1f}%)\n")
+                    f.write(f"    Metrics calculation:  {timings['metrics_calculation']:.2f}s ({100*timings['metrics_calculation']/timings['total']:.1f}%)\n")
+                    f.write(f"    TOTAL:                {timings['total']:.2f}s\n")
                 f.write(f"\n")
         
         # Summary
