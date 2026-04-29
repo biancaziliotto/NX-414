@@ -146,15 +146,24 @@ class SGDEncoder():
         self.cv_results_ = None
         self.best_alpha_ = None
 
-    def fit(self, X, y):
+    def fit(self, X, y, batch_size=None):
         """
         Fits the model to the training data.
+        For large datasets, uses incremental learning (partial_fit).
 
         Parameters:
         X (array-like): Feature vectors (n_samples, n_features).
         y (array-like): Target values (n_samples,) or (n_samples, n_units) for multi-output.
+        batch_size (int): If set, uses partial_fit with batches to reduce memory. Default: None (standard fit).
         """
-        self.model.fit(X, y)
+        if batch_size is None:
+            self.model.fit(X, y)
+        else:
+            # Use incremental learning for large datasets
+            for i in range(0, len(X), batch_size):
+                X_batch = X[i:i+batch_size]
+                y_batch = y[i:i+batch_size]
+                self.model.partial_fit(X_batch, y_batch)
 
     def predict(self, X):
         """
@@ -210,12 +219,12 @@ class SGDEncoder():
         grid_search = GridSearchCV(
             MultiOutputRegressor(
                 SGDRegressor(max_iter=self.max_iter, tol=self.tol, random_state=self.random_state),
-                n_jobs=-1
+                n_jobs=4
             ),
             param_grid,
             cv=cv,
             scoring=scoring,
-            n_jobs=1  # Use n_jobs=1 for grid search when MultiOutputRegressor already uses n_jobs=-1
+            n_jobs=1  # Use n_jobs=1 for grid search when MultiOutputRegressor already uses n_jobs=4
         )
         grid_search.fit(X, y)
         
@@ -228,7 +237,7 @@ class SGDEncoder():
                 random_state=self.random_state,
                 verbose=0
             ),
-            n_jobs=-1
+            n_jobs=4
         )
         self.model.fit(X, y)
         
