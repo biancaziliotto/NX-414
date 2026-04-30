@@ -17,9 +17,9 @@ Usage:
     python plot_results.py [--results-dir ./results] [--figures-dir ./figures]
 
 Output (saved under figures-dir):
-    pred_{neural_dataset}_layerwise_{roi}.png
-    pred_{neural_dataset}_roi_{model}.png
-    pred_{neural_dataset}_model_comparison.png
+    2_4_{neural_dataset}_layerwise_{roi}.png
+    2_4_{neural_dataset}_roi_{model}.png
+    2_4_{neural_dataset}_model_comparison.png
 """
 
 import argparse
@@ -109,7 +109,7 @@ def main():
 
         # -- layer-wise curves per ROI (both models on same axes) -------
         for roi in targets:
-            save = figures_dir / f"pred_{nd}_layerwise_{roi}.png"
+            save = figures_dir / f"2_4_{nd}_layerwise_{roi}.png"
             print(f"  layerwise {roi} ...", end=" ")
             plot_layerwise(
                 sub, target=roi, neural_dataset=nd,
@@ -123,7 +123,7 @@ def main():
         # -- ROI hierarchy per model ------------------------------------
         for model in nd_models:
             safe_model = model.replace("/", "-").replace(" ", "_")
-            save = figures_dir / f"pred_{nd}_roi_{safe_model}.png"
+            save = figures_dir / f"2_4_{nd}_roi_{safe_model}.png"
             print(f"  ROI alignment {model} ...", end=" ")
             plot_roi_alignment(
                 sub, model=model, neural_dataset=nd,
@@ -136,7 +136,7 @@ def main():
             print("saved")
 
         # -- best-layer model comparison --------------------------------
-        save = figures_dir / f"pred_{nd}_model_comparison.png"
+        save = figures_dir / f"2_4_{nd}_model_comparison.png"
         print(f"  model comparison ...", end=" ")
         plot_model_comparison(
             sub, neural_dataset=nd,
