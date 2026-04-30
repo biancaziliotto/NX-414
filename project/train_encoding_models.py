@@ -20,6 +20,14 @@ import torch
 from sklearn.metrics import r2_score, mean_squared_error
 from utils.predictive_alignement import ModelBrainDataset, SGDEncoder
 from utils.inspection_utils import load_tsvd_dataset, load_eeg2_dataset, load_nsd_dataset
+from utils.evaluation_metrics import (
+    compute_pearson_correlation,
+    compute_explained_variance,
+    compute_noise_ceiling,
+    compute_noise_corrected_pearson,
+    compute_noise_corrected_explained_variance,
+    compute_all_metrics
+)
 
 
 def load_neural_data(neural_dataset_name, roi, subject=None):
@@ -234,6 +242,10 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         mse = mean_squared_error(y_test[:, i], y_pred[:, i])
         r2_scores.append(r2)
         mse_scores.append(mse)
+    
+    # Compute all advanced metrics (pearson, explained variance, noise-corrected versions)
+    all_metrics = compute_all_metrics(y_test, y_pred)
+    
     timings['metrics_calculation'] = time.time() - metrics_start
     
     timings['total'] = time.time() - layer_start_time
@@ -257,6 +269,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         'r2_max': np.max(r2_scores),
         'mse_mean': np.mean(mse_scores),
         'mse_std': np.std(mse_scores),
+        **all_metrics,
         'n_units': len(r2_scores),
         'timings': timings,
         'weights_file': str(weights_file)
@@ -269,6 +282,15 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         print(f"  Test R² Mean: {layer_results['r2_mean']:.4f} ± {layer_results['r2_std']:.4f}")
         print(f"  Test R² Range: [{layer_results['r2_min']:.4f}, {layer_results['r2_max']:.4f}]")
         print(f"  Test MSE Mean: {layer_results['mse_mean']:.4f} ± {layer_results['mse_std']:.4f}")
+        print(f"  Pearson Correlation Mean: {layer_results['pearson_corr_mean']:.4f} ± {layer_results['pearson_corr_std']:.4f}")
+        print(f"  Pearson Correlation Range: [{layer_results['pearson_corr_min']:.4f}, {layer_results['pearson_corr_max']:.4f}]")
+        print(f"  Explained Variance Mean: {layer_results['explained_var_mean']:.4f} ± {layer_results['explained_var_std']:.4f}")
+        print(f"  Explained Variance Range: [{layer_results['explained_var_min']:.4f}, {layer_results['explained_var_max']:.4f}]")
+        print(f"  Noise-Corrected Pearson Mean: {layer_results['noise_corrected_pearson_mean']:.4f} ± {layer_results['noise_corrected_pearson_std']:.4f}")
+        print(f"  Noise-Corrected Pearson Range: [{layer_results['noise_corrected_pearson_min']:.4f}, {layer_results['noise_corrected_pearson_max']:.4f}]")
+        print(f"  Noise-Corrected Explained Var Mean: {layer_results['noise_corrected_ev_mean']:.4f} ± {layer_results['noise_corrected_ev_std']:.4f}")
+        print(f"  Noise-Corrected Explained Var Range: [{layer_results['noise_corrected_ev_min']:.4f}, {layer_results['noise_corrected_ev_max']:.4f}]")
+        print(f"  Noise Ceiling (assumed): {layer_results['noise_ceiling_mean']:.4f}")
         print(f"  Units analyzed: {layer_results['n_units']}")
         
         # Diagnostic: Count negative R²
@@ -455,6 +477,15 @@ Examples:
                 f.write(f"  Test R² Range: [{results['r2_min']:.4f}, {results['r2_max']:.4f}]\n")
                 f.write(f"  Test R² Median: {results['r2_median']:.4f}\n")
                 f.write(f"  Test MSE Mean: {results['mse_mean']:.4f} ± {results['mse_std']:.4f}\n")
+                f.write(f"  Pearson Correlation Mean: {results['pearson_corr_mean']:.4f} ± {results['pearson_corr_std']:.4f}\n")
+                f.write(f"  Pearson Correlation Range: [{results['pearson_corr_min']:.4f}, {results['pearson_corr_max']:.4f}]\n")
+                f.write(f"  Explained Variance Mean: {results['explained_var_mean']:.4f} ± {results['explained_var_std']:.4f}\n")
+                f.write(f"  Explained Variance Range: [{results['explained_var_min']:.4f}, {results['explained_var_max']:.4f}]\n")
+                f.write(f"  Noise-Corrected Pearson Mean: {results['noise_corrected_pearson_mean']:.4f} ± {results['noise_corrected_pearson_std']:.4f}\n")
+                f.write(f"  Noise-Corrected Pearson Range: [{results['noise_corrected_pearson_min']:.4f}, {results['noise_corrected_pearson_max']:.4f}]\n")
+                f.write(f"  Noise-Corrected Explained Var Mean: {results['noise_corrected_ev_mean']:.4f} ± {results['noise_corrected_ev_std']:.4f}\n")
+                f.write(f"  Noise-Corrected Explained Var Range: [{results['noise_corrected_ev_min']:.4f}, {results['noise_corrected_ev_max']:.4f}]\n")
+                f.write(f"  Noise Ceiling (assumed): {results['noise_ceiling_mean']:.4f}\n")
                 f.write(f"  Units analyzed: {results['n_units']}\n")
                 f.write(f"  X shape: {results['X_train_shape']} → {results['X_test_shape']}\n")
                 f.write(f"  y shape: {results['y_train_shape']} → {results['y_test_shape']}\n")
