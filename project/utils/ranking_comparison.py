@@ -85,8 +85,9 @@ def plot_ranking_comparison(
             ax.plot(range(len(layers)), scores, marker="o", label=model_name, linewidth=2)
             
             # Highlight best layer with a vertical line
-            best_idx = np.nanargmax(scores)
-            ax.axvline(best_idx, alpha=0.2, linestyle="--")
+            if scores.size > 0 and not np.all(np.isnan(scores)):
+                best_idx = np.nanargmax(scores)
+                ax.axvline(best_idx, alpha=0.2, linestyle="--")
         
         ax.set_xticks(range(len(layers)))
         ax.set_xticklabels(layers, rotation=45, ha="right", fontsize=8)
