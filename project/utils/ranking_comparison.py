@@ -6,6 +6,9 @@ import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import textwrap
+from matplotlib.colors import Normalize
+from matplotlib.cm import ScalarMappable
 
 from utils.alignement_utils import sort_layer_names
 from utils.predictive_plots import METRIC_LABELS, best_layer_table, DEFAULT_METRICS
@@ -123,6 +126,9 @@ def plot_ranking_agreement_matrix(
     
     Shows for each (target, model) pair, the best layer according to each metric,
     making it easy to spot agreements (same layer across metrics) and disagreements.
+    Color intensity indicates layer depth in the network (light yellow = early layers, 
+    dark red = deep layers). Uses a shared colorbar across all models for consistent 
+    depth interpretation.
 
     Parameters
     ----------
@@ -150,6 +156,19 @@ def plot_ranking_agreement_matrix(
     targets = sorted(sub["target"].unique())
     models = sorted(sub["model"].unique())
     
+    # Get layers per model to establish depth ordering independently for each model
+    model_layers = {}
+    for model in models:
+        model_sub = sub[sub["model"] == model]
+        model_layers[model] = sort_layer_names(model_sub["layer"].unique().tolist())
+    
+    # Create depth mapping per model: (model, layer) -> depth in [0, 1]
+    layer_to_depth = {}
+    for model, layers in model_layers.items():
+        for i, layer in enumerate(layers):
+            depth = i / (len(layers) - 1) if len(layers) > 1 else 0.5
+            layer_to_depth[(model, layer)] = depth
+    
     # For each (target, model) pair, collect the best layers per metric
     layer_map = {}  # (target, model) -> {metric -> layer}
     
@@ -163,23 +182,38 @@ def plot_ranking_agreement_matrix(
                 if len(row) > 0:
                     layer_map[(target, model)][metric] = row["layer"].values[0]
     
+    # Create shared colormap and normalization for layer depth
+    cmap = plt.cm.YlOrRd
+    norm = Normalize(vmin=0, vmax=1)
+    
     # Create figure with subplots per model
     ncols = min(len(models), 2)
     nrows = math.ceil(len(models) / ncols)
-    fig, axes = plt.subplots(nrows, ncols, figsize=(8 * ncols, 5 * nrows), squeeze=False)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(12 * ncols, 7 * nrows), squeeze=False)
     axes_flat = axes.flatten()
     
     for ax, model in zip(axes_flat, models):
         # Build data matrix: rows = targets, cols = metrics
         data = []
+        colors = []
         for target in targets:
             row_data = []
+            row_colors = []
             for metric in metrics:
                 layer_str = layer_map.get((target, model), {}).get(metric, "N/A")
-                row_data.append(layer_str)
+                # Wrap long layer names
+                if len(layer_str) > 15:
+                    wrapped = textwrap.fill(layer_str, width=12)
+                    row_data.append(wrapped)
+                else:
+                    row_data.append(layer_str)
+                # Get depth value (0-1) for coloring using model-specific norm
+                depth = layer_to_depth.get((model, layer_str), 0.5)
+                row_colors.append(cmap(norm(depth)))
             data.append(row_data)
+            colors.append(row_colors)
         
-        # Create table
+        # Create table with larger cells
         table = ax.table(cellText=data, 
                         rowLabels=targets,
                         colLabels=[METRIC_LABELS.get(m, m) for m in metrics],
@@ -188,32 +222,38 @@ def plot_ranking_agreement_matrix(
                         bbox=[0, 0, 1, 1])
         table.auto_set_font_size(False)
         table.set_fontsize(9)
-        table.scale(1, 2)
+        table.scale(1, 2.5)
         
-        # Color cells to highlight agreements/disagreements
+        # Apply color coding based on layer depth
         for i, target in enumerate(targets):
-            layers_for_target = [layer_map[(target, model)][m] for m in metrics 
-                                if m in layer_map[(target, model)]]
-            # Check if all layers are the same
-            all_same = len(set(layers_for_target)) == 1 if layers_for_target else False
-            
-            for j in range(len(metrics)):
+            for j, metric in enumerate(metrics):
                 cell = table[(i+1, j)]  # +1 because row 0 is header
-                if all_same:
-                    cell.set_facecolor("#90EE90")  # Light green for agreement
-                else:
-                    cell.set_facecolor("#FFB6C1")  # Light red for disagreement
+                cell.set_facecolor(colors[i][j])
+                cell.set_text_props(weight='bold')
+        
+        # Style header cells
+        for j in range(len(metrics)):
+            cell = table[(0, j)]
+            cell.set_facecolor('#DCDCDC')
+            cell.set_text_props(weight='bold')
         
         ax.axis("off")
         title = f"{model}  [{neural_dataset}]"
         if title_prefix:
             title = f"{title_prefix}, " + title
-        ax.set_title(title, fontsize=11, fontweight="bold", pad=20)
+        ax.set_title(title, fontsize=12, fontweight="bold", pad=20)
     
     for ax in axes_flat[len(models):]:
         ax.set_visible(False)
     
-    plt.tight_layout()
+    # Add colorbar for layer depth
+    cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7])
+    sm = ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = fig.colorbar(sm, cax=cbar_ax)
+    cbar.set_label("Layer Depth\n(Early → Late)", fontsize=10, fontweight='bold')
+    
+    plt.tight_layout(rect=[0, 0, 0.9, 1])
     if save_path:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
     return fig

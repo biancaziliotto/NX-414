@@ -44,7 +44,7 @@ METRIC_LABELS = {
 }
 
 # Metrics included by default in all multi-panel plots
-DEFAULT_METRICS = ["r2_mean", "pearson_corr_mean", "encoding_rsa", "encoding_cka"]
+DEFAULT_METRICS = ["r2_mean", "pearson_corr_mean", "encoding_rsa", "encoding_cka", "feature_rsa", "feature_cka"]
 
 # ---------------------------------------------------------------------------
 # Loading
