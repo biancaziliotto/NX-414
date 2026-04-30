@@ -632,6 +632,74 @@ def load_nsd_test(nsd_path: str, subject: str = "subj01", rois: list = None):
     return nsd_rois, nsd_ids
 
 
+# Bundled plotting
+
+def plot_alignment_full(
+    df: pd.DataFrame,
+    targets: list,
+    title_prefix: str,
+    save_dir: str = "figures",
+    file_prefix: str = "alignment",
+    show_layerwise: bool = True,
+    show_model_comparison: bool = True,
+    show_roi_hierarchy: bool = True,
+    print_best: bool = True,
+):
+    """
+    Run the full set of representational-alignment plots from a scores DataFrame.
+
+    Produces, in order:
+      1. Layer-wise alignment plot (both models on same axes) for each target.
+      2. Grouped bar chart comparing the two models' best-layer scores per target.
+      3. Per-model ROI hierarchy plot (one figure per model).
+      4. Prints the best-layer summary table.
+
+    All figures are saved under ``{save_dir}/{file_prefix}_*.png``.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Output of scores_to_dataframe (columns [model, target, layer, metric, score]).
+    targets : list
+        Targets to include and their plotting order (e.g. ["V1", "V4", "IT"]).
+    title_prefix : str
+        Title prefix shared across plots (e.g. "TVSD monkeyF" or "NSD avg").
+    save_dir : str
+        Directory where figures are written. Must already exist.
+    file_prefix : str
+        Filename prefix (e.g. "2_3_tvsd").
+    show_layerwise, show_model_comparison, show_roi_hierarchy, print_best : bool
+        Toggles for individual plots and the summary print.
+    """
+    if show_layerwise:
+        for roi in targets:
+            plot_layerwise_alignment(
+                df, target=roi, title_prefix=title_prefix,
+                save_path=f"{save_dir}/{file_prefix}_layerwise_{roi}.png",
+            )
+            plt.show()
+
+    if show_model_comparison:
+        plot_model_comparison(
+            df, targets=targets, title_prefix=title_prefix,
+            save_path=f"{save_dir}/{file_prefix}_model_comparison.png",
+        )
+        plt.show()
+
+    if show_roi_hierarchy:
+        for model in sorted(df["model"].unique()):
+            plot_roi_alignment(
+                df, model=model, roi_order=targets,
+                title_prefix=title_prefix,
+                save_path=f"{save_dir}/{file_prefix}_roi_{model}.png",
+            )
+            plt.show()
+
+    if print_best:
+        print(f"=== {title_prefix} best layers ===")
+        print(best_layer_table(df).to_string(index=False))
+
+
 # Multi-subject helpers
 
 def average_scores_df(per_subject_dfs: dict) -> pd.DataFrame:
@@ -798,6 +866,132 @@ def eeg_timeresolved_multisubject(
                 eeg_data, rsa=rsa, cka=cka,
             )
     return per_subject, average_timeresolved(per_subject), n_timepoints
+
+
+def plot_layer_roi_heatmap(
+    df: pd.DataFrame,
+    targets: list,
+    title: str,
+    metric: str = "RSA",
+    save_path: str = None,
+):
+    """
+    Heatmap of layer × ROI alignment scores for each model.
+
+    Rows = layers in architectural order (early → late).
+    Columns = ROIs ordered from low-level to high-level as given by `targets`.
+    One subplot per model side by side.
+    """
+    models = sorted(df["model"].unique())
+    fig, axes = plt.subplots(1, len(models), figsize=(6 * len(models), 6))
+    if len(models) == 1:
+        axes = [axes]
+
+    for ax, model in zip(axes, models):
+        sub = df[(df["model"] == model) & (df["metric"] == metric)]
+        layers = sort_layer_names(sub["layer"].unique().tolist())
+
+        mat = np.full((len(layers), len(targets)), np.nan)
+        for i, layer in enumerate(layers):
+            for j, roi in enumerate(targets):
+                row = sub[(sub["layer"] == layer) & (sub["target"] == roi)]
+                if len(row) > 0:
+                    mat[i, j] = row["score"].values[0]
+
+        im = ax.imshow(mat, aspect="auto", cmap="viridis", vmin=0)
+        ax.set_xticks(range(len(targets)))
+        ax.set_xticklabels(targets, rotation=30, ha="right")
+        ax.set_yticks(range(len(layers)))
+        ax.set_yticklabels(layers, fontsize=7)
+        ax.set_title(f"{title} — {model}, {metric}")
+        ax.set_xlabel("ROI (low → high level)")
+        ax.set_ylabel("Layer (early → late)")
+        plt.colorbar(im, ax=ax, label=metric)
+
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    return fig
+
+
+def plot_model_summary(
+    dfs_by_dataset: dict,
+    targets_by_dataset: dict,
+    metrics: tuple = ("RSA", "CKA"),
+    save_path: str = None,
+):
+    """
+    Best-layer grouped bar chart comparing models across datasets and ROIs.
+
+    Parameters
+    ----------
+    dfs_by_dataset : dict
+        {dataset_label: DataFrame} from scores_to_dataframe.
+    targets_by_dataset : dict
+        {dataset_label: [roi, ...]} — ROI order per dataset.
+    metrics : tuple
+        Metrics to plot (one subplot each).
+    save_path : str, optional
+        Path to save the figure.
+
+    Returns
+    -------
+    best : pd.DataFrame
+        Best-layer score table (model, dataset, target, metric, layer, score).
+    """
+    frames = []
+    for ds_label, df in dfs_by_dataset.items():
+        frames.append(df.assign(dataset=ds_label))
+    df_all = pd.concat(frames, ignore_index=True)
+
+    idx  = df_all.groupby(["model", "dataset", "target", "metric"])["score"].idxmax()
+    best = (
+        df_all.loc[idx]
+        .sort_values(["dataset", "target", "metric", "model"])
+        .reset_index(drop=True)
+    )
+
+    print("=== Best-layer scores across datasets and targets ===")
+    print(best[["model", "dataset", "target", "metric", "layer", "score"]].to_string(index=False))
+
+    models  = sorted(df_all["model"].unique())
+    palette = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    colors  = {m: palette[i] for i, m in enumerate(models)}
+
+    datasets_order = [(ds, targets_by_dataset[ds]) for ds in dfs_by_dataset]
+
+    fig, axes = plt.subplots(1, len(metrics), figsize=(7 * len(metrics), 5))
+    if len(metrics) == 1:
+        axes = [axes]
+
+    for ax, metric in zip(axes, metrics):
+        sub = best[best["metric"] == metric]
+        x_labels, x_centers, pos = [], [], 0
+        for ds, targets in datasets_order:
+            sub_ds = sub[sub["dataset"] == ds]
+            for t in targets:
+                sub_t = sub_ds[sub_ds["target"] == t]
+                first = (ds == datasets_order[0][0] and t == datasets_order[0][1][0])
+                for j, model in enumerate(models):
+                    row   = sub_t[sub_t["model"] == model]
+                    score = row["score"].values[0] if len(row) else 0
+                    ax.bar(pos + j * 0.4, score, 0.35,
+                           color=colors[model],
+                           label=model if first else "")
+                x_labels.append(f"{ds}\n{t}")
+                x_centers.append(pos + 0.2)
+                pos += 1.1
+            pos += 0.5
+        ax.set_xticks(x_centers)
+        ax.set_xticklabels(x_labels, fontsize=8, rotation=30, ha="right")
+        ax.set_ylabel("Best-layer score")
+        ax.set_title(f"Model comparison — {metric}")
+        ax.legend()
+
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    return best, fig
 
 
 def load_features(feat_path, neural_ids):
