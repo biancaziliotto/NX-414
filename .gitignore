@@ -135,5 +135,4 @@ dmypy.json
 .idea
 .ipynb_checkpoints
 
-project/results/
 project/encoders/
