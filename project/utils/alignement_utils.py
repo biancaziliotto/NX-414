@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from typing import Literal
 import h5py
@@ -883,8 +884,9 @@ def plot_layer_roi_heatmap(
     One subplot per model side by side.
     """
     models = sorted(df["model"].unique())
-    fig, axes = plt.subplots(1, len(models), figsize=(6 * len(models), 6))
-    if len(models) == 1:
+    ncols = len(models)
+    fig, axes = plt.subplots(1, ncols, figsize=(7 * ncols, 4.5))
+    if ncols == 1:
         axes = [axes]
 
     for ax, model in zip(axes, models):
@@ -900,10 +902,10 @@ def plot_layer_roi_heatmap(
 
         im = ax.imshow(mat, aspect="auto", cmap="viridis", vmin=0)
         ax.set_xticks(range(len(targets)))
-        ax.set_xticklabels(targets, rotation=30, ha="right")
+        ax.set_xticklabels(targets, rotation=30, ha="right", fontsize=8)
         ax.set_yticks(range(len(layers)))
         ax.set_yticklabels(layers, fontsize=7)
-        ax.set_title(f"{title} — {model}, {metric}")
+        ax.set_title(f"{title} — {model}, {metric}", fontsize=10, fontweight="bold")
         ax.set_xlabel("ROI (low → high level)")
         ax.set_ylabel("Layer (early → late)")
         plt.colorbar(im, ax=ax, label=metric)
@@ -960,11 +962,12 @@ def plot_model_summary(
 
     datasets_order = [(ds, targets_by_dataset[ds]) for ds in dfs_by_dataset]
 
-    fig, axes = plt.subplots(1, len(metrics), figsize=(7 * len(metrics), 5))
-    if len(metrics) == 1:
-        axes = [axes]
+    ncols = min(len(metrics), 2)
+    nrows = math.ceil(len(metrics) / ncols)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(7 * ncols, 4.5 * nrows), squeeze=False)
+    axes_flat = axes.flatten()
 
-    for ax, metric in zip(axes, metrics):
+    for ax, metric in zip(axes_flat, metrics):
         sub = best[best["metric"] == metric]
         x_labels, x_centers, pos = [], [], 0
         for ds, targets in datasets_order:
@@ -985,8 +988,11 @@ def plot_model_summary(
         ax.set_xticks(x_centers)
         ax.set_xticklabels(x_labels, fontsize=8, rotation=30, ha="right")
         ax.set_ylabel("Best-layer score")
-        ax.set_title(f"Model comparison — {metric}")
+        ax.set_title(f"Model comparison — {metric}", fontsize=10, fontweight="bold")
         ax.legend()
+
+    for ax in axes_flat[len(metrics):]:
+        ax.set_visible(False)
 
     plt.tight_layout()
     if save_path:
