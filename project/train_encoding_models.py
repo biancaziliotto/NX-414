@@ -28,6 +28,7 @@ from utils.evaluation_metrics import (
     compute_noise_corrected_explained_variance,
     compute_all_metrics
 )
+from utils.alignement_utils import RepresentationalSimilarityAnalysis, CenteredKernelAlignment
 
 
 def load_neural_data(neural_dataset_name, roi, subject=None):
@@ -223,6 +224,16 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     # Compute all advanced metrics (pearson, explained variance, noise-corrected versions)
     all_metrics = compute_all_metrics(y_test, y_pred)
     
+    # Compute representational metrics (RSA and CKA)
+    rsa = RepresentationalSimilarityAnalysis(metric='pearson')
+    cka = CenteredKernelAlignment(unbiased=True)
+    
+    X_test = dataset.X_test
+    feature_rsa = float(rsa(X_test, y_test))
+    feature_cka = float(cka(X_test, y_test))
+    encoding_rsa = float(rsa(y_pred, y_test))
+    encoding_cka = float(cka(y_pred, y_test))
+    
     timings['metrics_calculation'] = time.time() - metrics_start
     
     timings['total'] = time.time() - layer_start_time
@@ -247,6 +258,10 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         'mse_mean': np.mean(mse_scores),
         'mse_std': np.std(mse_scores),
         **all_metrics,
+        'feature_rsa': feature_rsa,
+        'feature_cka': feature_cka,
+        'encoding_rsa': encoding_rsa,
+        'encoding_cka': encoding_cka,
         'n_units': len(r2_scores),
         'timings': timings,
         'weights_file': str(weights_file)
@@ -268,6 +283,10 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         print(f"  Noise-Corrected Explained Var Mean: {layer_results['noise_corrected_ev_mean']:.4f} ± {layer_results['noise_corrected_ev_std']:.4f}")
         print(f"  Noise-Corrected Explained Var Range: [{layer_results['noise_corrected_ev_min']:.4f}, {layer_results['noise_corrected_ev_max']:.4f}]")
         print(f"  Noise Ceiling (assumed): {layer_results['noise_ceiling_mean']:.4f}")
+        print(f"  Feature RSA: {layer_results['feature_rsa']:.4f}")
+        print(f"  Feature CKA: {layer_results['feature_cka']:.4f}")
+        print(f"  Encoding RSA: {layer_results['encoding_rsa']:.4f}")
+        print(f"  Encoding CKA: {layer_results['encoding_cka']:.4f}")
         print(f"  Units analyzed: {layer_results['n_units']}")
         
         # Diagnostic: Count negative R²
@@ -463,6 +482,10 @@ Examples:
                 f.write(f"  Noise-Corrected Explained Var Mean: {results['noise_corrected_ev_mean']:.4f} ± {results['noise_corrected_ev_std']:.4f}\n")
                 f.write(f"  Noise-Corrected Explained Var Range: [{results['noise_corrected_ev_min']:.4f}, {results['noise_corrected_ev_max']:.4f}]\n")
                 f.write(f"  Noise Ceiling (assumed): {results['noise_ceiling_mean']:.4f}\n")
+                f.write(f"  Feature RSA: {results['feature_rsa']:.4f}\n")
+                f.write(f"  Feature CKA: {results['feature_cka']:.4f}\n")
+                f.write(f"  Encoding RSA: {results['encoding_rsa']:.4f}\n")
+                f.write(f"  Encoding CKA: {results['encoding_cka']:.4f}\n")
                 f.write(f"  Units analyzed: {results['n_units']}\n")
                 f.write(f"  X shape: {results['X_train_shape']} → {results['X_test_shape']}\n")
                 f.write(f"  y shape: {results['y_train_shape']} → {results['y_test_shape']}\n")

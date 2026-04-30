@@ -34,10 +34,12 @@ from utils.alignement_utils import sort_layer_names
 METRIC_LABELS = {
     "r2_mean":                      "R² test (mean)",
     "pearson_corr_mean":            "Pearson r (mean)",
+    "explained_var_mean":           "Expl. Var (mean)",
+    "feature_rsa":                  "Feature RSA",
+    "feature_cka":                  "Feature CKA",
     "encoding_rsa":                 "Encoding RSA",
     "encoding_cka":                 "Encoding CKA",
     "noise_corrected_pearson_mean": "NC Pearson r (mean)",
-    "explained_var_mean":           "Expl. Var (mean)",
     "noise_corrected_ev_mean":      "NC Expl. Var (mean)",
 }
 

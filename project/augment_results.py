@@ -57,11 +57,11 @@ ADDED_KEYS = {
     "noise_corrected_pearson_mean", "noise_corrected_pearson_std",
     "noise_corrected_pearson_median", "noise_corrected_pearson_min",
     "noise_corrected_pearson_max",
-    "noise_corrected_ev_mean", "noise_corrected_ev_std",
-    "noise_corrected_ev_median", "noise_corrected_ev_min",
-    "noise_corrected_ev_max",
     "noise_ceiling_mean",
-    # hybrid representational metrics
+    # representational metrics (feature-space)
+    "feature_rsa",
+    "feature_cka",
+    # representational metrics (encoding-space, predicted vs actual responses)
     "encoding_rsa",
     "encoding_cka",
 }
@@ -123,9 +123,9 @@ def _summarise(arr, prefix):
     }
 
 
-def compute_extra_metrics(y_true, y_pred, rsa, cka):
+def compute_extra_metrics(y_true, y_pred, X_test, rsa, cka):
     """
-    Compute all added metrics from ground-truth and predicted responses.
+    Compute all added metrics from features, predicted, and actual responses.
 
     Parameters
     ----------
@@ -133,6 +133,8 @@ def compute_extra_metrics(y_true, y_pred, rsa, cka):
         Actual neural responses on the test set.
     y_pred : np.ndarray, shape (n_stimuli, n_units)
         Predicted responses from the linear encoding model.
+    X_test : np.ndarray, shape (n_stimuli, n_features)
+        Model features on the test set.
     rsa : RepresentationalSimilarityAnalysis
     cka : CenteredKernelAlignment
 
@@ -145,6 +147,11 @@ def compute_extra_metrics(y_true, y_pred, rsa, cka):
     ev            = compute_explained_variance(y_true, y_pred)
     nc_pearson    = compute_noise_corrected_pearson(y_true, y_pred, noise_ceiling)
     nc_ev         = compute_noise_corrected_explained_variance(y_true, y_pred, noise_ceiling)
+
+    # Feature-RSA and feature-CKA: compare the representational geometry of
+    # model features to that of actual neural responses (feature-space metrics).
+    feature_rsa = float(rsa(X_test, y_true))
+    feature_cka = float(cka(X_test, y_true))
 
     # Encoding-RSA and encoding-CKA: compare the representational geometry of
     # predicted responses to that of actual responses.  This is a hybrid metric
@@ -159,6 +166,8 @@ def compute_extra_metrics(y_true, y_pred, rsa, cka):
         **_summarise(nc_pearson, "noise_corrected_pearson"),
         **_summarise(nc_ev,      "noise_corrected_ev"),
         "noise_ceiling_mean": float(np.mean(noise_ceiling)),
+        "feature_rsa": feature_rsa,
+        "feature_cka": feature_cka,
         "encoding_rsa": encoding_rsa,
         "encoding_cka": encoding_cka,
     }
@@ -224,7 +233,7 @@ def run_inference(entry, base_dir, device):
         y_test = y_test[:, None]
         y_pred = y_pred[:, None]
 
-    return y_test, y_pred
+    return y_test, y_pred, X_test
 
 
 # ---------------------------------------------------------------------------
@@ -269,8 +278,8 @@ def main():
             layer = entry.get("layer", "?")
             print(f"  {layer} ... ", end="", flush=True)
             try:
-                y_test, y_pred = run_inference(entry, base_dir, device)
-                entry.update(compute_extra_metrics(y_test, y_pred, rsa, cka))
+                y_test, y_pred, X_test = run_inference(entry, base_dir, device)
+                entry.update(compute_extra_metrics(y_test, y_pred, X_test, rsa, cka))
                 updated += 1
                 print("ok")
             except Exception as exc:

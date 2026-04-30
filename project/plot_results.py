@@ -2,24 +2,24 @@
 """
 Generate all predictive-alignment plots from result JSONs.
 
-Produces the same set of figures as the RSA/CKA alignment pipeline
-(layer-wise curves, ROI hierarchy, best-layer model comparison, summary
-tables) but for the encoding-model metrics:
+Produces the following set of figures from the encoding-model metrics:
 
     r2_mean               – mean R² on the held-out test set
     pearson_corr_mean     – mean Pearson r on the test set
     encoding_rsa          – RSA between predicted and actual responses
     encoding_cka          – CKA between predicted and actual responses
 
-Run augment_results.py first to ensure all four metrics are present.
+Generates:
+    2_4_{neural_dataset}_layerwise_{roi}.png          – Layer-wise performance curves
+    2_4_{neural_dataset}_roi_{model}.png              – ROI hierarchy per model
+    2_4_{neural_dataset}_model_comparison.png         – Best-layer model comparison
+    2_5_{neural_dataset}_ranking_comparison_{roi}.png – Ranking comparison across metrics
+    2_5_{neural_dataset}_ranking_agreement.png        – Best-layer agreement matrix
+
+Run augment_results.py first to ensure all metrics are present.
 
 Usage:
     python plot_results.py [--results-dir ./results] [--figures-dir ./figures]
-
-Output (saved under figures-dir):
-    2_4_{neural_dataset}_layerwise_{roi}.png
-    2_4_{neural_dataset}_roi_{model}.png
-    2_4_{neural_dataset}_model_comparison.png
 """
 
 import argparse
@@ -37,6 +37,11 @@ from utils.predictive_plots import (
     DEFAULT_METRICS,
     METRIC_LABELS,
 )
+from utils.ranking_comparison import (
+    plot_ranking_comparison,
+    plot_ranking_agreement_matrix,
+)
+
 
 # Short display names for models whose full paths are unwieldy
 MODEL_ALIASES = {
@@ -148,6 +153,50 @@ def main():
         plt.close()
         print("saved")
 
+        print()
+
+    # ------------------------------------------------------------------ #
+    # Ranking comparison figures (2.5)                                     #
+    # ------------------------------------------------------------------ #
+    print("=" * 70)
+    print("RANKING COMPARISON FIGURES")
+    print("=" * 70)
+
+    ranking_metrics = [m for m in DEFAULT_METRICS if m in available_metrics]
+
+    for nd in neural_datasets:
+        sub = df[df["neural_dataset"] == nd]
+        targets = ROI_ORDER.get(nd, sorted(sub["target"].unique()))
+        targets = [t for t in targets if t in sub["target"].unique()]
+        
+        print(f"=== {nd} (targets: {targets}) ===")
+        
+        # -- ranking comparison per ROI ---------------------------------
+        for roi in targets:
+            safe_roi = roi.replace("/", "-").replace(" ", "_")
+            save = figures_dir / f"2_5_{nd}_ranking_comparison_{safe_roi}.png"
+            print(f"  ranking comparison {roi} ...", end=" ")
+            plot_ranking_comparison(
+                sub, target=roi, neural_dataset=nd,
+                metrics=ranking_metrics,
+                title_prefix=nd,
+                save_path=str(save),
+            )
+            plt.close()
+            print("saved")
+        
+        # -- ranking agreement matrix -----------------------------------
+        save = figures_dir / f"2_5_{nd}_ranking_agreement.png"
+        print(f"  ranking agreement matrix ...", end=" ")
+        plot_ranking_agreement_matrix(
+            sub, neural_dataset=nd,
+            metrics=ranking_metrics,
+            title_prefix=nd,
+            save_path=str(save),
+        )
+        plt.close()
+        print("saved")
+        
         print()
 
     # ------------------------------------------------------------------ #
