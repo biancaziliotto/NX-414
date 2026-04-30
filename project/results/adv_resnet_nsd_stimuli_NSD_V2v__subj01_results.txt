@@ -1,0 +1,207 @@
+Encoding Model Training Results
+======================================================================
+Model: adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0
+Dataset: nsd_stimuli
+Neural Dataset: NSD
+ROI: V2v
+Subject: subj01
+======================================================================
+
+Layer: layer1-0
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1904
+  Test R² Mean: 0.2239 ± 0.1443
+  Test R² Range: [-0.0510, 0.5809]
+  Test R² Median: 0.2208
+  Test MSE Mean: 0.3633 ± 0.0226
+  Units analyzed: 725
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 725) → (1000, 725)
+  Model weights saved to: encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/nsd_stimuli/NSD/V2v/subj01/layer1-0.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.87s (0.8%)
+    Dataset creation:     40.47s (36.9%)
+    Training & eval:      67.34s (61.5%)
+    Metrics calculation:  0.58s (0.5%)
+    TOTAL:                109.56s
+
+Layer: layer2-0
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.2277
+  Test R² Mean: 0.2621 ± 0.1654
+  Test R² Range: [-0.0434, 0.6345]
+  Test R² Median: 0.2553
+  Test MSE Mean: 0.3426 ± 0.0240
+  Units analyzed: 725
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 725) → (1000, 725)
+  Model weights saved to: encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/nsd_stimuli/NSD/V2v/subj01/layer2-0.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.50s (0.5%)
+    Dataset creation:     40.97s (37.2%)
+    Training & eval:      67.32s (61.1%)
+    Metrics calculation:  1.09s (1.0%)
+    TOTAL:                110.20s
+
+Layer: layer3-0
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.2572
+  Test R² Mean: 0.2882 ± 0.1845
+  Test R² Range: [-0.0331, 0.7023]
+  Test R² Median: 0.2811
+  Test MSE Mean: 0.3280 ± 0.0322
+  Units analyzed: 725
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 725) → (1000, 725)
+  Model weights saved to: encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/nsd_stimuli/NSD/V2v/subj01/layer3-0.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.27s (0.3%)
+    Dataset creation:     39.29s (37.0%)
+    Training & eval:      65.87s (62.0%)
+    Metrics calculation:  0.59s (0.6%)
+    TOTAL:                106.25s
+
+Layer: layer3-10
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.2541
+  Test R² Mean: 0.2845 ± 0.1878
+  Test R² Range: [-0.0322, 0.7168]
+  Test R² Median: 0.2775
+  Test MSE Mean: 0.3297 ± 0.0354
+  Units analyzed: 725
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 725) → (1000, 725)
+  Model weights saved to: encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/nsd_stimuli/NSD/V2v/subj01/layer3-10.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.29s (0.3%)
+    Dataset creation:     41.24s (37.1%)
+    Training & eval:      68.30s (61.5%)
+    Metrics calculation:  1.08s (1.0%)
+    TOTAL:                111.13s
+
+Layer: layer3-15
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.2538
+  Test R² Mean: 0.2831 ± 0.1873
+  Test R² Range: [-0.0391, 0.7173]
+  Test R² Median: 0.2738
+  Test MSE Mean: 0.3305 ± 0.0359
+  Units analyzed: 725
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 725) → (1000, 725)
+  Model weights saved to: encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/nsd_stimuli/NSD/V2v/subj01/layer3-15.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.50s (0.5%)
+    Dataset creation:     41.47s (38.2%)
+    Training & eval:      65.72s (60.6%)
+    Metrics calculation:  0.59s (0.5%)
+    TOTAL:                108.45s
+
+Layer: layer3-20
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.2488
+  Test R² Mean: 0.2802 ± 0.1858
+  Test R² Range: [-0.0364, 0.7138]
+  Test R² Median: 0.2761
+  Test MSE Mean: 0.3321 ± 0.0354
+  Units analyzed: 725
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 725) → (1000, 725)
+  Model weights saved to: encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/nsd_stimuli/NSD/V2v/subj01/layer3-20.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.49s (0.5%)
+    Dataset creation:     39.83s (37.4%)
+    Training & eval:      65.28s (61.4%)
+    Metrics calculation:  0.58s (0.5%)
+    TOTAL:                106.39s
+
+Layer: layer3-25
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.2428
+  Test R² Mean: 0.2727 ± 0.1829
+  Test R² Range: [-0.0373, 0.7137]
+  Test R² Median: 0.2669
+  Test MSE Mean: 0.3360 ± 0.0349
+  Units analyzed: 725
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 725) → (1000, 725)
+  Model weights saved to: encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/nsd_stimuli/NSD/V2v/subj01/layer3-25.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.46s (0.4%)
+    Dataset creation:     37.24s (35.4%)
+    Training & eval:      66.48s (63.2%)
+    Metrics calculation:  0.83s (0.8%)
+    TOTAL:                105.23s
+
+Layer: layer3-30
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.2367
+  Test R² Mean: 0.2676 ± 0.1793
+  Test R² Range: [-0.0505, 0.7019]
+  Test R² Median: 0.2596
+  Test MSE Mean: 0.3389 ± 0.0339
+  Units analyzed: 725
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 725) → (1000, 725)
+  Model weights saved to: encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/nsd_stimuli/NSD/V2v/subj01/layer3-30.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.31s (0.3%)
+    Dataset creation:     39.00s (34.6%)
+    Training & eval:      72.70s (64.4%)
+    Metrics calculation:  0.58s (0.5%)
+    TOTAL:                112.82s
+
+Layer: layer3-5
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.2576
+  Test R² Mean: 0.2886 ± 0.1891
+  Test R² Range: [-0.0465, 0.7126]
+  Test R² Median: 0.2829
+  Test MSE Mean: 0.3274 ± 0.0349
+  Units analyzed: 725
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 725) → (1000, 725)
+  Model weights saved to: encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/nsd_stimuli/NSD/V2v/subj01/layer3-5.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.44s (0.4%)
+    Dataset creation:     36.92s (35.2%)
+    Training & eval:      66.84s (63.6%)
+    Metrics calculation:  0.59s (0.6%)
+    TOTAL:                105.02s
+
+Layer: layer4-1
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1767
+  Test R² Mean: 0.2066 ± 0.1576
+  Test R² Range: [-0.0628, 0.6378]
+  Test R² Median: 0.2008
+  Test MSE Mean: 0.3712 ± 0.0358
+  Units analyzed: 725
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 725) → (1000, 725)
+  Model weights saved to: encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/nsd_stimuli/NSD/V2v/subj01/layer4-1.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.66s (0.6%)
+    Dataset creation:     36.13s (34.2%)
+    Training & eval:      67.41s (63.9%)
+    Metrics calculation:  1.08s (1.0%)
+    TOTAL:                105.57s
+
+
+======================================================================
+SUMMARY
+======================================================================
+Layers processed: 10
+Mean R² across layers: 0.2657
+Best R² (layer mean): 0.2886
+Worst R² (layer mean): 0.2066

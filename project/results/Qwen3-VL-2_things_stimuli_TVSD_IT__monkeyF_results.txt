@@ -1,0 +1,207 @@
+Encoding Model Training Results
+======================================================================
+Model: Qwen3-VL-2B-Instruct
+Dataset: things_stimuli
+Neural Dataset: TVSD
+ROI: IT
+Subject: monkeyF
+======================================================================
+
+Layer: language_model-layers-11
+  Best Alpha: 1.0e-01
+  HP Selection R²: 0.1642
+  Test R² Mean: 0.3516 ± 0.1434
+  Test R² Range: [-0.1085, 0.6444]
+  Test R² Median: 0.3559
+  Test MSE Mean: 0.0467 ± 0.0370
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/IT/monkeyF/language_model-layers-11.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.62s (0.9%)
+    Dataset creation:     36.43s (21.4%)
+    Training & eval:      132.07s (77.4%)
+    Metrics calculation:  0.18s (0.1%)
+    TOTAL:                170.56s
+
+Layer: language_model-layers-16
+  Best Alpha: 1.0e-01
+  HP Selection R²: 0.1620
+  Test R² Mean: 0.3497 ± 0.1362
+  Test R² Range: [-0.0453, 0.6244]
+  Test R² Median: 0.3508
+  Test MSE Mean: 0.0473 ± 0.0381
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/IT/monkeyF/language_model-layers-16.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.70s (0.5%)
+    Dataset creation:     26.32s (17.4%)
+    Training & eval:      123.96s (82.0%)
+    Metrics calculation:  0.18s (0.1%)
+    TOTAL:                151.21s
+
+Layer: language_model-layers-3
+  Best Alpha: 1.0e-01
+  HP Selection R²: 0.1732
+  Test R² Mean: 0.3726 ± 0.1423
+  Test R² Range: [-0.1500, 0.6504]
+  Test R² Median: 0.3772
+  Test MSE Mean: 0.0451 ± 0.0359
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/IT/monkeyF/language_model-layers-3.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.66s (0.4%)
+    Dataset creation:     25.34s (16.8%)
+    Training & eval:      124.25s (82.5%)
+    Metrics calculation:  0.18s (0.1%)
+    TOTAL:                150.53s
+
+Layer: language_model-layers-8
+  Best Alpha: 1.0e-01
+  HP Selection R²: 0.1704
+  Test R² Mean: 0.3690 ± 0.1434
+  Test R² Range: [-0.1704, 0.6696]
+  Test R² Median: 0.3749
+  Test MSE Mean: 0.0455 ± 0.0365
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/IT/monkeyF/language_model-layers-8.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.72s (0.5%)
+    Dataset creation:     23.12s (15.4%)
+    Training & eval:      125.96s (83.9%)
+    Metrics calculation:  0.18s (0.1%)
+    TOTAL:                150.08s
+
+Layer: visual-blocks-10
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.2026
+  Test R² Mean: 0.4510 ± 0.1780
+  Test R² Range: [-0.2799, 0.7460]
+  Test R² Median: 0.4807
+  Test MSE Mean: 0.0381 ± 0.0306
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/IT/monkeyF/visual-blocks-10.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.65s (0.4%)
+    Dataset creation:     25.31s (15.8%)
+    Training & eval:      134.21s (83.7%)
+    Metrics calculation:  0.18s (0.1%)
+    TOTAL:                160.40s
+
+Layer: visual-blocks-14
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1951
+  Test R² Mean: 0.4324 ± 0.1848
+  Test R² Range: [-0.3658, 0.7266]
+  Test R² Median: 0.4607
+  Test MSE Mean: 0.0388 ± 0.0302
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/IT/monkeyF/visual-blocks-14.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.26s (0.2%)
+    Dataset creation:     23.60s (15.1%)
+    Training & eval:      132.09s (84.6%)
+    Metrics calculation:  0.18s (0.1%)
+    TOTAL:                156.19s
+
+Layer: visual-blocks-18
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1752
+  Test R² Mean: 0.3894 ± 0.2082
+  Test R² Range: [-0.7436, 0.7336]
+  Test R² Median: 0.4381
+  Test MSE Mean: 0.0409 ± 0.0308
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/IT/monkeyF/visual-blocks-18.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.57s (0.4%)
+    Dataset creation:     23.60s (15.1%)
+    Training & eval:      131.90s (84.4%)
+    Metrics calculation:  0.18s (0.1%)
+    TOTAL:                156.31s
+
+Layer: visual-blocks-2
+  Best Alpha: 1.0e-01
+  HP Selection R²: 0.1335
+  Test R² Mean: 0.2861 ± 0.1654
+  Test R² Range: [-0.2308, 0.7345]
+  Test R² Median: 0.2784
+  Test MSE Mean: 0.0533 ± 0.0457
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/IT/monkeyF/visual-blocks-2.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.92s (1.2%)
+    Dataset creation:     24.76s (15.9%)
+    Training & eval:      128.82s (82.7%)
+    Metrics calculation:  0.18s (0.1%)
+    TOTAL:                155.74s
+
+Layer: visual-blocks-22
+  Best Alpha: 1.0e-01
+  HP Selection R²: 0.1526
+  Test R² Mean: 0.3450 ± 0.1274
+  Test R² Range: [-0.1213, 0.6212]
+  Test R² Median: 0.3573
+  Test MSE Mean: 0.0480 ± 0.0388
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/IT/monkeyF/visual-blocks-22.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.19s (0.8%)
+    Dataset creation:     23.77s (15.8%)
+    Training & eval:      124.91s (83.1%)
+    Metrics calculation:  0.18s (0.1%)
+    TOTAL:                150.37s
+
+Layer: visual-blocks-6
+  Best Alpha: 1.0e-01
+  HP Selection R²: 0.1886
+  Test R² Mean: 0.4280 ± 0.1574
+  Test R² Range: [-0.1432, 0.7208]
+  Test R² Median: 0.4549
+  Test MSE Mean: 0.0429 ± 0.0377
+  Units analyzed: 241
+  X shape: (22248, 30000) → (100, 30000)
+  y shape: (22248, 241) → (100, 241)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/IT/monkeyF/visual-blocks-6.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.64s (0.4%)
+    Dataset creation:     25.24s (16.6%)
+    Training & eval:      125.85s (82.8%)
+    Metrics calculation:  0.18s (0.1%)
+    TOTAL:                151.98s
+
+
+======================================================================
+SUMMARY
+======================================================================
+Layers processed: 10
+Mean R² across layers: 0.3775
+Best R² (layer mean): 0.4510
+Worst R² (layer mean): 0.2861

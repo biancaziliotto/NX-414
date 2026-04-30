@@ -1,0 +1,207 @@
+Encoding Model Training Results
+======================================================================
+Model: Qwen3-VL-2B-Instruct
+Dataset: things_stimuli
+Neural Dataset: EEG2
+ROI: occipital_parietal
+Subject: sub-01
+======================================================================
+
+Layer: language_model-layers-11
+  Best Alpha: 2.0e-01
+  HP Selection R²: -0.0811
+  Test R² Mean: -1.0624 ± 0.2285
+  Test R² Range: [-1.4436, -0.5240]
+  Test R² Median: -1.0843
+  Test MSE Mean: 30.5085 ± 108.2575
+  Units analyzed: 17
+  X shape: (16540, 30000) → (200, 30000)
+  y shape: (16540, 17) → (200, 17)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/EEG2/occipital_parietal/sub-01/language_model-layers-11.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         2.72s (1.9%)
+    Dataset creation:     33.10s (22.8%)
+    Training & eval:      109.50s (75.3%)
+    Metrics calculation:  0.01s (0.0%)
+    TOTAL:                145.41s
+
+Layer: language_model-layers-16
+  Best Alpha: 2.0e-01
+  HP Selection R²: -0.0863
+  Test R² Mean: -1.3365 ± 0.2853
+  Test R² Range: [-1.6779, -0.5408]
+  Test R² Median: -1.3810
+  Test MSE Mean: 31.2431 ± 109.3544
+  Units analyzed: 17
+  X shape: (16540, 30000) → (200, 30000)
+  y shape: (16540, 17) → (200, 17)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/EEG2/occipital_parietal/sub-01/language_model-layers-16.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         2.95s (2.1%)
+    Dataset creation:     32.39s (23.1%)
+    Training & eval:      105.12s (74.8%)
+    Metrics calculation:  0.01s (0.0%)
+    TOTAL:                140.49s
+
+Layer: language_model-layers-3
+  Best Alpha: 2.0e-01
+  HP Selection R²: -0.0726
+  Test R² Mean: -1.2618 ± 0.2379
+  Test R² Range: [-1.5428, -0.4750]
+  Test R² Median: -1.2990
+  Test MSE Mean: 29.9928 ± 104.6627
+  Units analyzed: 17
+  X shape: (16540, 30000) → (200, 30000)
+  y shape: (16540, 17) → (200, 17)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/EEG2/occipital_parietal/sub-01/language_model-layers-3.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         3.25s (2.2%)
+    Dataset creation:     31.80s (21.7%)
+    Training & eval:      111.41s (76.0%)
+    Metrics calculation:  0.01s (0.0%)
+    TOTAL:                146.50s
+
+Layer: language_model-layers-8
+  Best Alpha: 2.0e-01
+  HP Selection R²: -0.0783
+  Test R² Mean: -1.2117 ± 0.2507
+  Test R² Range: [-1.4686, -0.4369]
+  Test R² Median: -1.2435
+  Test MSE Mean: 29.2067 ± 101.9621
+  Units analyzed: 17
+  X shape: (16540, 30000) → (200, 30000)
+  y shape: (16540, 17) → (200, 17)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/EEG2/occipital_parietal/sub-01/language_model-layers-8.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         2.75s (2.0%)
+    Dataset creation:     27.35s (19.9%)
+    Training & eval:      107.13s (78.0%)
+    Metrics calculation:  0.01s (0.0%)
+    TOTAL:                137.26s
+
+Layer: visual-blocks-10
+  Best Alpha: 2.0e-01
+  HP Selection R²: -0.0488
+  Test R² Mean: -1.0095 ± 0.2706
+  Test R² Range: [-1.4612, -0.1839]
+  Test R² Median: -1.0061
+  Test MSE Mean: 24.3962 ± 83.9260
+  Units analyzed: 17
+  X shape: (16540, 30000) → (200, 30000)
+  y shape: (16540, 17) → (200, 17)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/EEG2/occipital_parietal/sub-01/visual-blocks-10.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.98s (1.4%)
+    Dataset creation:     25.21s (18.2%)
+    Training & eval:      111.21s (80.3%)
+    Metrics calculation:  0.01s (0.0%)
+    TOTAL:                138.43s
+
+Layer: visual-blocks-14
+  Best Alpha: 2.0e-01
+  HP Selection R²: -0.0381
+  Test R² Mean: -0.9142 ± 0.2535
+  Test R² Range: [-1.3927, -0.2001]
+  Test R² Median: -0.9142
+  Test MSE Mean: 24.5543 ± 85.1238
+  Units analyzed: 17
+  X shape: (16540, 30000) → (200, 30000)
+  y shape: (16540, 17) → (200, 17)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/EEG2/occipital_parietal/sub-01/visual-blocks-14.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         2.14s (1.5%)
+    Dataset creation:     28.86s (20.2%)
+    Training & eval:      112.07s (78.3%)
+    Metrics calculation:  0.01s (0.0%)
+    TOTAL:                143.10s
+
+Layer: visual-blocks-18
+  Best Alpha: 2.0e-01
+  HP Selection R²: -0.0523
+  Test R² Mean: -0.8567 ± 0.1713
+  Test R² Range: [-1.1915, -0.5187]
+  Test R² Median: -0.8234
+  Test MSE Mean: 30.1242 ± 107.9546
+  Units analyzed: 17
+  X shape: (16540, 30000) → (200, 30000)
+  y shape: (16540, 17) → (200, 17)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/EEG2/occipital_parietal/sub-01/visual-blocks-18.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.95s (1.4%)
+    Dataset creation:     26.06s (18.7%)
+    Training & eval:      111.08s (79.8%)
+    Metrics calculation:  0.01s (0.0%)
+    TOTAL:                139.11s
+
+Layer: visual-blocks-2
+  Best Alpha: 2.0e-01
+  HP Selection R²: -0.0764
+  Test R² Mean: -1.4162 ± 0.3188
+  Test R² Range: [-1.8201, -0.3883]
+  Test R² Median: -1.3700
+  Test MSE Mean: 28.7059 ± 98.3947
+  Units analyzed: 17
+  X shape: (16540, 30000) → (200, 30000)
+  y shape: (16540, 17) → (200, 17)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/EEG2/occipital_parietal/sub-01/visual-blocks-2.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.72s (1.2%)
+    Dataset creation:     27.60s (19.5%)
+    Training & eval:      112.10s (79.3%)
+    Metrics calculation:  0.01s (0.0%)
+    TOTAL:                141.45s
+
+Layer: visual-blocks-22
+  Best Alpha: 2.0e-01
+  HP Selection R²: -0.0711
+  Test R² Mean: -1.4707 ± 0.3047
+  Test R² Range: [-1.8391, -0.5269]
+  Test R² Median: -1.5410
+  Test MSE Mean: 31.2449 ± 108.2984
+  Units analyzed: 17
+  X shape: (16540, 30000) → (200, 30000)
+  y shape: (16540, 17) → (200, 17)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/EEG2/occipital_parietal/sub-01/visual-blocks-22.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         2.13s (1.6%)
+    Dataset creation:     24.22s (18.1%)
+    Training & eval:      107.60s (80.3%)
+    Metrics calculation:  0.01s (0.0%)
+    TOTAL:                133.97s
+
+Layer: visual-blocks-6
+  Best Alpha: 2.0e-01
+  HP Selection R²: -0.0742
+  Test R² Mean: -1.2364 ± 0.3109
+  Test R² Range: [-1.6439, -0.3763]
+  Test R² Median: -1.2682
+  Test MSE Mean: 28.1533 ± 97.6217
+  Units analyzed: 17
+  X shape: (16540, 30000) → (200, 30000)
+  y shape: (16540, 17) → (200, 17)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/things_stimuli/EEG2/occipital_parietal/sub-01/visual-blocks-6.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.81s (1.3%)
+    Dataset creation:     24.07s (17.8%)
+    Training & eval:      108.97s (80.8%)
+    Metrics calculation:  0.01s (0.0%)
+    TOTAL:                134.88s
+
+
+======================================================================
+SUMMARY
+======================================================================
+Layers processed: 10
+Mean R² across layers: -1.1776
+Best R² (layer mean): -0.8567
+Worst R² (layer mean): -1.4707

@@ -1,0 +1,207 @@
+Encoding Model Training Results
+======================================================================
+Model: Qwen3-VL-2B-Instruct
+Dataset: nsd_stimuli
+Neural Dataset: NSD
+ROI: OPA
+Subject: subj01
+======================================================================
+
+Layer: language_model-layers-11
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1776
+  Test R² Mean: 0.1889 ± 0.1113
+  Test R² Range: [-0.0131, 0.5111]
+  Test R² Median: 0.1760
+  Test MSE Mean: 0.3392 ± 0.0184
+  Units analyzed: 1353
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 1353) → (1000, 1353)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/nsd_stimuli/NSD/OPA/subj01/language_model-layers-11.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.33s (1.1%)
+    Dataset creation:     48.05s (38.5%)
+    Training & eval:      73.80s (59.2%)
+    Metrics calculation:  1.09s (0.9%)
+    TOTAL:                124.72s
+
+Layer: language_model-layers-16
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1760
+  Test R² Mean: 0.1883 ± 0.1101
+  Test R² Range: [-0.0047, 0.5089]
+  Test R² Median: 0.1749
+  Test MSE Mean: 0.3396 ± 0.0182
+  Units analyzed: 1353
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 1353) → (1000, 1353)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/nsd_stimuli/NSD/OPA/subj01/language_model-layers-16.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         2.05s (1.6%)
+    Dataset creation:     49.34s (39.1%)
+    Training & eval:      73.39s (58.1%)
+    Metrics calculation:  1.10s (0.9%)
+    TOTAL:                126.23s
+
+Layer: language_model-layers-3
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1868
+  Test R² Mean: 0.1959 ± 0.1124
+  Test R² Range: [-0.0035, 0.5175]
+  Test R² Median: 0.1838
+  Test MSE Mean: 0.3362 ± 0.0184
+  Units analyzed: 1353
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 1353) → (1000, 1353)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/nsd_stimuli/NSD/OPA/subj01/language_model-layers-3.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.15s (0.9%)
+    Dataset creation:     46.83s (37.9%)
+    Training & eval:      73.97s (59.9%)
+    Metrics calculation:  1.06s (0.9%)
+    TOTAL:                123.41s
+
+Layer: language_model-layers-8
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1821
+  Test R² Mean: 0.1941 ± 0.1122
+  Test R² Range: [-0.0084, 0.5167]
+  Test R² Median: 0.1819
+  Test MSE Mean: 0.3370 ± 0.0185
+  Units analyzed: 1353
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 1353) → (1000, 1353)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/nsd_stimuli/NSD/OPA/subj01/language_model-layers-8.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.30s (1.1%)
+    Dataset creation:     43.49s (36.8%)
+    Training & eval:      71.95s (60.9%)
+    Metrics calculation:  1.05s (0.9%)
+    TOTAL:                118.13s
+
+Layer: visual-blocks-10
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1535
+  Test R² Mean: 0.1604 ± 0.1017
+  Test R² Range: [-0.0355, 0.5014]
+  Test R² Median: 0.1435
+  Test MSE Mean: 0.3519 ± 0.0179
+  Units analyzed: 1353
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 1353) → (1000, 1353)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/nsd_stimuli/NSD/OPA/subj01/visual-blocks-10.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.55s (1.3%)
+    Dataset creation:     43.05s (35.8%)
+    Training & eval:      74.09s (61.7%)
+    Metrics calculation:  1.04s (0.9%)
+    TOTAL:                120.09s
+
+Layer: visual-blocks-14
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1654
+  Test R² Mean: 0.1717 ± 0.1036
+  Test R² Range: [-0.0226, 0.4876]
+  Test R² Median: 0.1562
+  Test MSE Mean: 0.3470 ± 0.0173
+  Units analyzed: 1353
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 1353) → (1000, 1353)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/nsd_stimuli/NSD/OPA/subj01/visual-blocks-14.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.86s (0.7%)
+    Dataset creation:     45.13s (36.2%)
+    Training & eval:      77.24s (62.0%)
+    Metrics calculation:  1.04s (0.8%)
+    TOTAL:                124.63s
+
+Layer: visual-blocks-18
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1766
+  Test R² Mean: 0.1821 ± 0.1069
+  Test R² Range: [-0.0072, 0.4921]
+  Test R² Median: 0.1676
+  Test MSE Mean: 0.3424 ± 0.0176
+  Units analyzed: 1353
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 1353) → (1000, 1353)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/nsd_stimuli/NSD/OPA/subj01/visual-blocks-18.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.80s (1.5%)
+    Dataset creation:     44.69s (36.9%)
+    Training & eval:      73.15s (60.4%)
+    Metrics calculation:  1.05s (0.9%)
+    TOTAL:                121.05s
+
+Layer: visual-blocks-2
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.0946
+  Test R² Mean: 0.1060 ± 0.0790
+  Test R² Range: [-0.0398, 0.4306]
+  Test R² Median: 0.0905
+  Test MSE Mean: 0.3763 ± 0.0224
+  Units analyzed: 1353
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 1353) → (1000, 1353)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/nsd_stimuli/NSD/OPA/subj01/visual-blocks-2.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.35s (1.1%)
+    Dataset creation:     45.79s (36.7%)
+    Training & eval:      76.32s (61.1%)
+    Metrics calculation:  1.05s (0.8%)
+    TOTAL:                124.85s
+
+Layer: visual-blocks-22
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1784
+  Test R² Mean: 0.1862 ± 0.1077
+  Test R² Range: [0.0008, 0.4959]
+  Test R² Median: 0.1735
+  Test MSE Mean: 0.3406 ± 0.0178
+  Units analyzed: 1353
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 1353) → (1000, 1353)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/nsd_stimuli/NSD/OPA/subj01/visual-blocks-22.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         1.77s (1.4%)
+    Dataset creation:     48.60s (37.7%)
+    Training & eval:      77.01s (59.8%)
+    Metrics calculation:  1.04s (0.8%)
+    TOTAL:                128.77s
+
+Layer: visual-blocks-6
+  Best Alpha: 1.0e-02
+  HP Selection R²: 0.1428
+  Test R² Mean: 0.1558 ± 0.1015
+  Test R² Range: [-0.0115, 0.5181]
+  Test R² Median: 0.1387
+  Test MSE Mean: 0.3539 ± 0.0188
+  Units analyzed: 1353
+  X shape: (9000, 30000) → (1000, 30000)
+  y shape: (9000, 1353) → (1000, 1353)
+  Model weights saved to: encoders/Qwen3-VL-2B-Instruct/nsd_stimuli/NSD/OPA/subj01/visual-blocks-6.pth
+
+  TIMING BREAKDOWN:
+    Data loading:         0.83s (0.7%)
+    Dataset creation:     47.36s (37.5%)
+    Training & eval:      76.70s (60.7%)
+    Metrics calculation:  1.06s (0.8%)
+    TOTAL:                126.42s
+
+
+======================================================================
+SUMMARY
+======================================================================
+Layers processed: 10
+Mean R² across layers: 0.1730
+Best R² (layer mean): 0.1959
+Worst R² (layer mean): 0.1060
