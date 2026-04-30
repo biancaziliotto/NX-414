@@ -14,6 +14,23 @@ def load_subject(data,subject_id,roi):
 
     return eeg_train['neural_data'][subject_id][roi], eeg_train['stimulus_ids'], eeg_noise_ceilings_train[subject_id][roi]
 
+def _reshape_to_3d(responses):
+    """Reshape (n_channels, n_timepoints, n_stimuli, n_reps) to (n_units, n_stimuli, n_reps)."""
+    if responses.ndim == 3:
+        return responses, None
+    elif responses.ndim == 4:
+        n_c, n_t, n_s, n_r = responses.shape
+        return responses.reshape(n_c * n_t, n_s, n_r), (n_c, n_t)
+    else:
+        raise ValueError("responses must be 3D or 4D")
+
+
+def _restore_shape(arr, reshape_info):
+    if reshape_info is None:
+        return arr
+    return arr.reshape(reshape_info)
+
+
 def compute_ceiling_variancebased(responses: np.ndarray, nan_policy: str = 'omit') -> np.ndarray:
     """
     Noise ceiling per unit using the method described in the NSD paper
@@ -37,30 +54,42 @@ def compute_ceiling_variancebased(responses: np.ndarray, nan_policy: str = 'omit
     Returns
     -------
     np.ndarray
-        Per-unit noise ceilings in percent with shape (n_units) or
-        (n_channels, n_timepoints), depending on your implementation.
+        Per-unit noise ceilings in percent with shape (n_units,) or
+        (n_channels, n_timepoints).
     """
+    x, reshape_info = _reshape_to_3d(responses)
+    n_units, n_stimuli, n_reps = x.shape
 
-    ### TODO
-    # 1:
-    z_mu = np.mean(responses,axis=2,keepdims=True)
-    z_sigma = np.std(responses,axis=2,keepdims=True)
-    z_responses = (responses-z_mu)/z_sigma
+    if n_reps < 2:
+        return np.full((n_units,), np.nan)
 
-    # 2:
-    noise_var_per_stim = np.var(z_responses,axis=3)
-    noise_var = np.average(noise_var_per_stim, axis = 2)
+    if nan_policy == 'omit':
+        mean = np.nanmean(x, axis=1, keepdims=True)
+        std = np.nanstd(x, axis=1, ddof=1, keepdims=True)
+    elif nan_policy == 'propagate':
+        mean = np.mean(x, axis=1, keepdims=True)
+        std = np.std(x, axis=1, ddof=1, keepdims=True)
+    elif nan_policy == 'raise':
+        if np.isnan(x).any():
+            raise ValueError("NaNs present in input")
+        mean = np.mean(x, axis=1, keepdims=True)
+        std = np.std(x, axis=1, ddof=1, keepdims=True)
+    else:
+        raise ValueError(f"Invalid nan_policy: {nan_policy!r}")
 
-    # 3:
-    signal_var = 1 - noise_var
+    std = np.where(std == 0, np.nan, std)
+    z = (x - mean) / std
 
-    # 4:
-    snr = signal_var/noise_var
-    nc1 = 100 * (signal_var/(signal_var + noise_var))
+    if nan_policy == 'omit':
+        noise_var = np.nanmean(np.nanvar(z, axis=2, ddof=1), axis=1)
+    else:
+        noise_var = np.mean(np.var(z, axis=2, ddof=1), axis=1)
 
-    
-    nc2 = 100 * (snr**2 /(snr**2 + 1/80))
-    return nc2
+    signal_var = np.maximum(1.0 - noise_var, 0)
+    snr = signal_var / noise_var
+    nc = 100.0 * (snr / (snr + 1.0 / n_reps))
+
+    return _restore_shape(nc, reshape_info)
 
 
 def compute_ceiling_splithalf(
@@ -74,7 +103,7 @@ def compute_ceiling_splithalf(
     """
     Split-half reliability per unit (voxel / channel / channel*timepoint).
     You can refer to van Bree et al. (2025) for mathematical details.
-    
+
     Steps:
       1) For each fold, randomly split repetitions into two halves.
       2) Average responses within each half and compute Pearson correlation across stimuli.
@@ -90,109 +119,54 @@ def compute_ceiling_splithalf(
     folds : int, default=10
         Number of random split-halves to sample.
     seed : int, default=0
-        Base RNG seed; each fold may use seed + fold_idx.
+        RNG seed.
     spearman_brown : bool, default=True
-        Apply Spearman-Brown correction:
-            r_sb = 2r / (1 + r)
+        Apply Spearman-Brown correction: r_sb = 2r / (1 + r).
     equalize_halves : bool, default=True
-        If True, use equal-sized halves and drop one trial if n_reps is odd.
-        If False, the second half may be larger by one trial.
+        If True, use equal-sized halves (drops one trial if n_reps is odd).
     clip_folds : bool, default=False
-        If True, clip reliability values after correction.
+        If True, clip reliability values to [-1, 1] after correction.
 
     Returns
     -------
     np.ndarray
-        Array of shape (n_units) or (n_channels, n_timepoints).
+        Array of shape (n_units,) or (n_channels, n_timepoints).
     """
-    ### TODO
-    
-    rep_axis = -1
-    stim_axis = -2
+    x, reshape_info = _reshape_to_3d(responses)
+    n_units, n_stimuli, n_reps = x.shape
 
-    n_reps = responses.shape[rep_axis]
-    out_shape = responses.shape[:-2]
+    if n_reps < 2:
+        return np.full((n_units,), np.nan)
 
-    fold_rs = np.zeros((folds, *out_shape))
+    rng = np.random.RandomState(seed)
+    all_fold_r = []
 
-    for f in range(folds):
-        rng = np.random.default_rng(seed + f)
+    for _ in range(folds):
+        perm = rng.permutation(n_reps)
+        half = n_reps // 2
+        idx1 = perm[:half]
+        idx2 = perm[half:2 * half] if equalize_halves else perm[half:]
 
-        # --- handle odd number of repetitions ---
-        if equalize_halves and (n_reps % 2 != 0):
-            valid_reps = n_reps - 1
-        else:
-            valid_reps = n_reps
+        x1 = np.nanmean(x[:, :, idx1], axis=2)
+        x2 = np.nanmean(x[:, :, idx2], axis=2)
 
-        all_idx = np.arange(n_reps)
+        x1c = x1 - np.nanmean(x1, axis=1, keepdims=True)
+        x2c = x2 - np.nanmean(x2, axis=1, keepdims=True)
 
-        # --- sample first half ---
-        half_size = valid_reps // 2
-        idx1 = np.sort(rng.choice(all_idx, size=half_size, replace=False))
+        num = np.nansum(x1c * x2c, axis=1)
+        den = np.sqrt(np.nansum(x1c ** 2, axis=1) * np.nansum(x2c ** 2, axis=1))
+        r = num / den
 
-        # --- second half = remaining indices ---
-        idx2 = np.setdiff1d(all_idx, idx1, assume_unique=True)
-
-        # if we dropped one trial, trim idx2
-        if equalize_halves and (n_reps % 2 != 0):
-            idx2 = idx2[:half_size]
-
-        # --- split data ---
-        slicer = [slice(None)] * responses.ndim
-
-        slicer[rep_axis] = idx1
-        half1 = responses[tuple(slicer)]
-
-        slicer[rep_axis] = idx2
-        half2 = responses[tuple(slicer)]
-
-        # --- average over repetitions ---
-        half1_avg = np.mean(half1, axis=rep_axis)
-        half2_avg = np.mean(half2, axis=rep_axis)
-        
-        # now stimuli is the LAST axis
-        stim_axis = -1
-        
-        x = half1_avg
-        y = half2_avg
-        
-        x_mean = np.mean(x, axis=stim_axis, keepdims=True)
-        y_mean = np.mean(y, axis=stim_axis, keepdims=True)
-        
-        xm = x - x_mean
-        ym = y - y_mean
-        
-        numerator = np.sum(xm * ym, axis=stim_axis)
-        denominator = (
-            np.sqrt(np.sum(xm**2, axis=stim_axis)) *
-            np.sqrt(np.sum(ym**2, axis=stim_axis))
-        )
-        
-        r = numerator / denominator
-
-        # --- Spearman-Brown correction ---
         if spearman_brown:
-            r = (2 * r) / (1 + r)
-
+            r = 2 * r / (1 + r)
         if clip_folds:
-            r = np.clip(r, 0, 1)
+            r = np.clip(r, -1, 1)
 
-        fold_rs[f] = r
+        all_fold_r.append(r)
 
-    return np.mean(fold_rs, axis=0)*100
+    rel = np.nanmean(np.stack(all_fold_r, axis=0), axis=0)
+    return _restore_shape(rel * 100, reshape_info)
 
-def random_split(data, axis, eq):
-    n = data.shape[axis]
-    if eq:
-        if n%2 != 0:
-            np.delete(data, np.random.randint(n),axis=axis)
-            n = n-1
-        
-    choice = np.random.choice(range(data.shape[axis]), size=(n//2,), replace=False)    
-    ind = np.zeros(data.shape[axis], dtype=bool)
-    ind[choice] = True
-    rest = ~ind
-    return data[:,:,:,ind], data[:,:,:,rest]
 
 def compare_noise_ceilings(
     h5_path: str,

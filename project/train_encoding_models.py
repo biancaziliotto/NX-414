@@ -77,29 +77,6 @@ def load_neural_data(neural_dataset_name, roi, subject=None):
     return y_train, y_test, stimuli_train, stimuli_test
 
 
-def get_layer_activations(activations_path, layer_name, stimuli_ids):
-    """
-    Load activations for a specific layer.
-    
-    Parameters:
-    activations_path (str): Path to the h5 file with model activations
-    layer_name (str): Name of the layer
-    stimuli_ids (array-like): Stimulus IDs to load
-    
-    Returns:
-    array-like: Activations (n_samples, n_features)
-    """
-    with h5py.File(activations_path, 'r') as f:
-        layer_data = f['features'][layer_name][:]
-        activation_indexes = list(f['ids'][:])
-        
-        # Map stimulus IDs to indices
-        data_indexes = [activation_indexes.index(stimulus_id) for stimulus_id in stimuli_ids]
-        X = layer_data[data_indexes, :]
-    
-    return X
-
-
 def get_model_layers(model_name, dataset_name):
     """
     Get list of layers from model activations file.
