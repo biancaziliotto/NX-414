@@ -806,7 +806,8 @@ def nsd_alignment_multisubject(
 ):
     """
     Run RSA/CKA alignment for each NSD subject. Each subject has its own
-    stimulus subset, so features are reloaded per subject.
+    stimulus subset. Feature files are loaded into memory once and then
+    indexed per subject to avoid repeated slow h5py reads.
 
     Returns
     -------
@@ -816,11 +817,14 @@ def nsd_alignment_multisubject(
     if subjects is None:
         subjects = [f"subj0{i}" for i in range(1, 9)]
 
+    resnet_all, resnet_idx = preload_features(resnet_path)
+    qwen_all,   qwen_idx   = preload_features(qwen_path)
+
     per_subject = {}
     for s in subjects:
         roi_data, ids = load_nsd_test(nsd_path, subject=s, rois=rois)
-        resnet_layers = load_features(resnet_path, ids)
-        qwen_layers   = load_features(qwen_path,   ids)
+        resnet_layers = select_preloaded(resnet_all, resnet_idx, ids)
+        qwen_layers   = select_preloaded(qwen_all,   qwen_idx,   ids)
         res = compare_models_and_targets(
             {"ResNet": resnet_layers, "Qwen": qwen_layers},
             roi_data, rsa=rsa, cka=cka,
@@ -1015,3 +1019,16 @@ def load_features(feat_path, neural_ids):
             data = f["features"][key][sorted_idx]
             layers[key] = data[restore_order]
     return layers
+
+
+def preload_features(feat_path):
+    with h5py.File(feat_path, "r") as f:
+        ids = f["ids"][:]
+        id_to_idx = {id_: i for i, id_ in enumerate(ids)}
+        layers = {key: f["features"][key][:] for key in f["features"].keys()}
+    return layers, id_to_idx
+
+
+def select_preloaded(all_layers, id_to_idx, neural_ids):
+    feat_idx = np.array([id_to_idx[x] for x in neural_ids])
+    return {layer: data[feat_idx] for layer, data in all_layers.items()}
