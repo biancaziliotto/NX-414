@@ -24,8 +24,8 @@ class ModelBrainDataset():
         stimuli_train (array-like): Stimuli identifiers/indices for training (n_train_samples,).
         stimuli_test (array-like): Stimuli identifiers/indices for test (n_test_samples,).
         model_name (str): Name of the model (used to locate activations).
-        activations_path (str): Path for loading activations.
-        layer_name (str): Name of layer.
+        dataset_name (str): Name of the dataset (used to locate activations).
+        layer_name (str or list): Name(s) of layer(s). If list with >1 layers, concatenates activations.
         """
         self.y_train = y_train
         self.y_test = y_test
@@ -33,9 +33,10 @@ class ModelBrainDataset():
         self.stimuli_test = stimuli_test
         self.model_name = model_name
         self.dataset_name = dataset_name
+        self.layer_name = layer_name  # Store for reference
         self.activations_path = f"/shared/NX-414/extracted_features/{model_name}/{dataset_name}.h5"
         
-        # Load activations
+        # Load activations (handles both single layer string and list of layers)
         self.X_train = self._load_activations(stimuli_train, layer_name)
         self.X_test = self._load_activations(stimuli_test, layer_name)
         
@@ -47,36 +48,51 @@ class ModelBrainDataset():
     def _load_activations(self, stimuli_ids, layer):
         """
         Loads model activations for the given stimuli.
+        If layer is a list with multiple layers, concatenates their activations.
 
         Parameters:
         stimuli_ids (array-like): Stimuli identifiers/indices.
-        model_name (str): Name of the model.
-        path_template (str): Template path for loading activations.
+        layer (str or list): Name of layer(s). If list, concatenates activations.
 
         Returns:
         array-like: Stacked activations (n_samples, n_features).
         """
-         
         activations_file = h5py.File(self.activations_path, "r")
         
         feat_ids = list(activations_file["ids"])
         id_to_feat_idx = {id_: i for i, id_ in enumerate(feat_ids)}
         feat_idx = np.array([id_to_feat_idx[x] for x in stimuli_ids])
-
-        layer_act = activations_file["features"][layer]
         
         # HDF5 requires indices in sorted order for fancy indexing
         # So we sort, read, then un-sort to match original order
         sort_order = np.argsort(feat_idx)
         feat_idx_sorted = feat_idx[sort_order]
         
-        # Read with sorted indices (vectorized, fast!)
-        X_sorted = layer_act[feat_idx_sorted, :]
+        # Handle both single layer (str) and multiple layers (list)
+        if isinstance(layer, str):
+            layers = [layer]
+        else:
+            layers = layer
+        
+        # Load and concatenate activations from all layers
+        X_sorted_layers = []
+        for layer_name in layers:
+            layer_act = activations_file["features"][layer_name]
+            # Read with sorted indices (vectorized, fast!)
+            X_sorted = layer_act[feat_idx_sorted, :]
+            X_sorted_layers.append(X_sorted)
+        
+        # Concatenate along feature axis if multiple layers
+        if len(X_sorted_layers) > 1:
+            X_sorted = np.concatenate(X_sorted_layers, axis=1)
+        else:
+            X_sorted = X_sorted_layers[0]
         
         # Un-sort to match original stimulus order
         unsort_order = np.argsort(sort_order)
         X = X_sorted[unsort_order, :]
-
+        
+        activations_file.close()
         return X
 
     def get_data(self):

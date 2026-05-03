@@ -104,14 +104,14 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
                        max_epochs=500, min_epochs=20, patience=10, tolerance=1e-5, 
                        batch_size=256, learning_rate=0.001, use_cv=True, verbose=True):
     """
-    Train and evaluate an encoding model for a single layer.
+    Train and evaluate an encoding model for one or multiple layers (concatenated).
     
     Parameters:
     model_name (str): Name of the model
     dataset_name (str): Name of the dataset  
     neural_dataset_name (str): Name of the neural dataset
     roi (str): Region of interest
-    layer_name (str): Name of the layer
+    layer_name (str or list): Name(s) of layer(s). If list with >1 layers, concatenates activations.
     subject (str): Subject identifier (optional, defaults per dataset)
     max_epochs (int): Maximum number of training epochs
     min_epochs (int): Minimum epochs before early stopping allowed
@@ -126,11 +126,16 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     Returns:
     dict: Results dictionary with metrics
     """
+    # Normalize layer_name for display and filenames
+    if isinstance(layer_name, list):
+        layer_display = f"{len(layer_name)} layers: {'+'.join(layer_name)}"
+        layer_filename = "_".join(layer_name)
+    else:
+        layer_display = layer_name
+        layer_filename = layer_name
     if verbose:
         print(f"\n{'='*70}")
-        print(f"Processing Layer: {layer_name}")
-        print(f"{'='*70}")
-    
+        print(f"Processing Layer(s): {layer_display}")
     # Track timings
     timings = {}
     layer_start_time = time.time()
@@ -205,7 +210,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
         encoders_dir = encoders_dir / subject
     encoders_dir.mkdir(parents=True, exist_ok=True)
     
-    weights_file = encoders_dir / f"{layer_name}.pth"
+    weights_file = encoders_dir / f"{layer_filename}.pth"
     torch.save(encoder.model.state_dict(), weights_file)
     if verbose:
         print(f"  Saved model weights to: {weights_file}")
@@ -239,7 +244,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     timings['total'] = time.time() - layer_start_time
     
     layer_results = {
-        'layer': layer_name,
+        'layer': layer_display if isinstance(layer_name, list) else layer_name,
         'model': model_name,
         'dataset': dataset_name,
         'roi': roi,
@@ -268,7 +273,7 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     }
     
     if verbose:
-        print(f"\nResults for {layer_name}:")
+        print(f"\nResults for {layer_display}:")
         print(f"  Best Alpha: {layer_results['best_alpha']:.1e}")
         print(f"  HP Selection R²: {layer_results['hp_score']:.4f}")
         print(f"  Test R² Mean: {layer_results['r2_mean']:.4f} ± {layer_results['r2_std']:.4f}")
@@ -466,7 +471,7 @@ Examples:
             
             # Progressively append results to txt file
             with open(txt_file, 'a') as f:
-                f.write(f"Layer: {results['layer']}\n")
+                f.write(f"Layer(s): {results['layer']}\n")
                 f.write(f"  Best Alpha: {results['best_alpha']:.1e}\n")
                 f.write(f"  HP Selection R²: {results['hp_score']:.4f}\n")
                 f.write(f"  Test R² Mean: {results['r2_mean']:.4f} ± {results['r2_std']:.4f}\n")
