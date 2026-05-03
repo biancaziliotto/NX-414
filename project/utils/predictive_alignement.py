@@ -245,32 +245,38 @@ class SGDEncoder():
         X_normalized = self.X_scaler.fit_transform(X)
         y_normalized = self.y_scaler.fit_transform(y)
         
-        # Convert to PyTorch tensors
-        X_tensor = torch.FloatTensor(X_normalized).to(self.device)
-        y_tensor = torch.FloatTensor(y_normalized).to(self.device)
-        
+        # Keep tensors on CPU; only individual batches are moved to GPU.
+        # This avoids allocating the full training matrix (~2.5 GB) on the GPU.
+        X_tensor = torch.FloatTensor(X_normalized)
+        y_tensor = torch.FloatTensor(y_normalized)
+        del X_normalized, y_normalized  # free CPU copies immediately
+
         if len(y_tensor.shape) == 1:
             y_tensor = y_tensor.unsqueeze(1)
-        
+
         # Create model
-        self.model = self._create_model(X_normalized.shape[1], y_tensor.shape[1])
-        
-        # Create dataset and dataloader
+        self.model = self._create_model(X_tensor.shape[1], y_tensor.shape[1])
+
+        # pin_memory speeds up CPU→GPU transfers when a GPU is available
+        pin = self.device.type == 'cuda'
         dataset = TensorDataset(X_tensor, y_tensor)
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True,
+                                pin_memory=pin, num_workers=0)
+
         # Optimizer and loss
         optimizer = Adam(self.model.parameters(), lr=self.learning_rate)
         criterion = nn.MSELoss()
-        
+
         # Early stopping tracking
         best_loss = float('inf')
         patience_counter = 0
-        
+
         # Training loop with early stopping
         for epoch in range(self.max_iter):
             total_loss = 0
             for batch_X, batch_y in dataloader:
+                batch_X = batch_X.to(self.device, non_blocking=pin)
+                batch_y = batch_y.to(self.device, non_blocking=pin)
                 optimizer.zero_grad()
                 y_pred = self.model(batch_X)
                 loss = criterion(y_pred, batch_y)

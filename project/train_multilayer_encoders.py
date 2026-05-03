@@ -15,6 +15,7 @@ Dataset          : TVSD / things_stimuli / monkeyF
 """
 
 import argparse
+import gc
 import json
 import sys
 import time
@@ -306,6 +307,11 @@ def main():
                 # Save progressively after each k
                 with open(out_json, "w") as f:
                     json.dump(all_results, f, indent=2, cls=_NumpyEncoder)
+
+                # Release CPU memory and flush GPU cache between k values
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
             print(f"\n  Saved {len(all_results)} entries → {out_json}")
 

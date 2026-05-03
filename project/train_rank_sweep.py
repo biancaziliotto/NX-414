@@ -14,6 +14,7 @@ Alpha is taken from the cross-validated single-layer results, unchanged.
 """
 
 import argparse
+import gc
 import json
 import sys
 import time
@@ -321,6 +322,11 @@ def main():
                 # Save progressively
                 with open(out_json, "w") as f:
                     json.dump(all_results, f, indent=2, cls=_NumpyEncoder)
+
+                # Release CPU memory and flush GPU cache between ranks
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
             print(f"\n  Saved {len(all_results)} entries → {out_json}")
 
