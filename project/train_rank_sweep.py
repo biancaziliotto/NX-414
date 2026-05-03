@@ -42,7 +42,7 @@ DATASET = "things_stimuli"
 SUBJECT = "monkeyF"
 # Ranks tried per (model, ROI). 30000 = full-rank baseline (loaded from existing
 # results, not re-trained). n_units is substituted at runtime from the data.
-FIXED_RANKS = [100, 20, 10]  # low-rank values, same for all ROIs
+FIXED_RANKS = [20, 10, 8, 6, 4]  # low-rank values, same for all ROIs
 
 
 class _NumpyEncoder(json.JSONEncoder):
@@ -140,8 +140,10 @@ def train_low_rank(
 
     t0 = time.time()
     encoder.fit(dataset.X_train, dataset.y_train, verbose=False)
-    y_pred = encoder.predict(dataset.X_test)
-    y_test_arr = dataset.y_test
+    y_pred_test  = encoder.predict(dataset.X_test)
+    y_pred_train = encoder.predict(dataset.X_train)
+    y_test_arr  = dataset.y_test
+    y_train_arr = dataset.y_train
     timings["training_and_evaluation"] = time.time() - t0
 
     # ---- Weights -----------------------------------------------------------
@@ -152,18 +154,27 @@ def train_low_rank(
     weights_file = enc_dir / f"{layer_name}_rank{rank}.pth"
     torch.save(encoder.model.state_dict(), weights_file)
 
-    # ---- Metrics -----------------------------------------------------------
+    # ---- Metrics (test + train) --------------------------------------------
     t0 = time.time()
-    r2_list = [r2_score(y_test_arr[:, i], y_pred[:, i]) for i in range(y_test_arr.shape[1])]
-    mse_list = [mean_squared_error(y_test_arr[:, i], y_pred[:, i]) for i in range(y_test_arr.shape[1])]
-    all_metrics = compute_all_metrics(y_test_arr, y_pred)
-
     rsa = RepresentationalSimilarityAnalysis(similarity_metric="pearson")
     cka = CenteredKernelAlignment()
-    feature_rsa = float(rsa(dataset.X_test, y_test_arr))
-    feature_cka = float(cka(dataset.X_test, y_test_arr))
-    encoding_rsa = float(rsa(y_pred, y_test_arr))
-    encoding_cka = float(cka(y_pred, y_test_arr))
+
+    # Test
+    r2_test  = [r2_score(y_test_arr[:, i], y_pred_test[:, i])  for i in range(y_test_arr.shape[1])]
+    mse_test = [mean_squared_error(y_test_arr[:, i], y_pred_test[:, i]) for i in range(y_test_arr.shape[1])]
+    metrics_test = compute_all_metrics(y_test_arr, y_pred_test)
+    feature_rsa  = float(rsa(dataset.X_test, y_test_arr))
+    feature_cka  = float(cka(dataset.X_test, y_test_arr))
+    encoding_rsa = float(rsa(y_pred_test, y_test_arr))
+    encoding_cka = float(cka(y_pred_test, y_test_arr))
+
+    # Train
+    r2_train  = [r2_score(y_train_arr[:, i], y_pred_train[:, i])  for i in range(y_train_arr.shape[1])]
+    mse_train = [mean_squared_error(y_train_arr[:, i], y_pred_train[:, i]) for i in range(y_train_arr.shape[1])]
+    metrics_train = compute_all_metrics(y_train_arr, y_pred_train)
+    encoding_rsa_train = float(rsa(y_pred_train, y_train_arr))
+    encoding_cka_train = float(cka(y_pred_train, y_train_arr))
+
     timings["metrics_calculation"] = time.time() - t0
     timings["total"] = time.time() - t_total
 
@@ -180,26 +191,47 @@ def train_low_rank(
         "X_test_shape": list(dataset.X_test.shape),
         "y_train_shape": list(dataset.y_train.shape),
         "y_test_shape": list(dataset.y_test.shape),
-        "r2_mean": float(np.mean(r2_list)),
-        "r2_std": float(np.std(r2_list)),
-        "r2_median": float(np.median(r2_list)),
-        "r2_min": float(np.min(r2_list)),
-        "r2_max": float(np.max(r2_list)),
-        "mse_mean": float(np.mean(mse_list)),
-        "mse_std": float(np.std(mse_list)),
-        **all_metrics,
+        # test metrics
+        "r2_mean": float(np.mean(r2_test)),
+        "r2_std": float(np.std(r2_test)),
+        "r2_median": float(np.median(r2_test)),
+        "r2_min": float(np.min(r2_test)),
+        "r2_max": float(np.max(r2_test)),
+        "mse_mean": float(np.mean(mse_test)),
+        "mse_std": float(np.std(mse_test)),
+        **metrics_test,
         "feature_rsa": feature_rsa,
         "feature_cka": feature_cka,
         "encoding_rsa": encoding_rsa,
         "encoding_cka": encoding_cka,
-        "n_units": len(r2_list),
+        # train metrics (suffixed _train)
+        "r2_mean_train": float(np.mean(r2_train)),
+        "r2_std_train": float(np.std(r2_train)),
+        "r2_median_train": float(np.median(r2_train)),
+        "r2_min_train": float(np.min(r2_train)),
+        "r2_max_train": float(np.max(r2_train)),
+        "mse_mean_train": float(np.mean(mse_train)),
+        "mse_std_train": float(np.std(mse_train)),
+        **{k + "_train": v for k, v in metrics_train.items()},
+        "encoding_rsa_train": encoding_rsa_train,
+        "encoding_cka_train": encoding_cka_train,
+        "n_units": len(r2_test),
         "timings": timings,
         "weights_file": str(weights_file),
     }
 
     if verbose:
-        print(f"  R²     : {result['r2_mean']:.4f} ± {result['r2_std']:.4f}")
-        print(f"  Pearson: {result['pearson_corr_mean']:.4f} ± {result['pearson_corr_std']:.4f}")
+        print(f"  {'':6s}  {'R²':>8s}  {'Pearson':>8s}  {'Expl.Var':>9s}  {'Enc.RSA':>8s}  {'Enc.CKA':>8s}")
+        print(f"  {'TRAIN':6s}  {result['r2_mean_train']:8.4f}  "
+              f"{result['pearson_corr_mean_train']:8.4f}  "
+              f"{result['explained_var_mean_train']:9.4f}  "
+              f"{result['encoding_rsa_train']:8.4f}  "
+              f"{result['encoding_cka_train']:8.4f}")
+        print(f"  {'TEST':6s}  {result['r2_mean']:8.4f}  "
+              f"{result['pearson_corr_mean']:8.4f}  "
+              f"{result['explained_var_mean']:9.4f}  "
+              f"{result['encoding_rsa']:8.4f}  "
+              f"{result['encoding_cka']:8.4f}")
         print(f"  ⏱  {timings['total']:.1f}s total")
 
     return result
@@ -276,14 +308,11 @@ def main():
             best = best_layer_entry(single_results)
             best_layer = best["layer"]
             fixed_alpha = best["best_alpha"]
-            n_units = best["n_units"]
-
-            # Build rank list: full-rank baseline + n_units + fixed low-rank values
-            ranks = [30000, n_units] + FIXED_RANKS
+            ranks = [30000] + FIXED_RANKS
 
             print(f"  Best layer  : {best_layer}  (R²={best['r2_mean']:.4f})")
+            print(f"  n_units     : {best['n_units']}")
             print(f"  Fixed alpha : {fixed_alpha}")
-            print(f"  n_units     : {n_units}")
             print(f"  Ranks       : {ranks}  (rank=30000 loaded from existing results)")
 
             out_json = output_dir / f"{model_alias}_things_stimuli_TVSD_{roi}_rank_sweep_results.json"
