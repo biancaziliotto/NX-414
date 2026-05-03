@@ -40,8 +40,9 @@ ROIS = ["V1", "V4", "IT"]
 NEURAL_DATASET = "TVSD"
 DATASET = "things_stimuli"
 SUBJECT = "monkeyF"
-# 30000 = feature dim of a single layer; treated as full-rank baseline.
-RANKS = [30000, 3000, 300, 30]
+# Ranks tried per (model, ROI). 30000 = full-rank baseline (loaded from existing
+# results, not re-trained). n_units is substituted at runtime from the data.
+FIXED_RANKS = [100, 20, 10]  # low-rank values, same for all ROIs
 
 
 class _NumpyEncoder(json.JSONEncoder):
@@ -157,8 +158,8 @@ def train_low_rank(
     mse_list = [mean_squared_error(y_test_arr[:, i], y_pred[:, i]) for i in range(y_test_arr.shape[1])]
     all_metrics = compute_all_metrics(y_test_arr, y_pred)
 
-    rsa = RepresentationalSimilarityAnalysis(metric="pearson")
-    cka = CenteredKernelAlignment(unbiased=True)
+    rsa = RepresentationalSimilarityAnalysis(similarity_metric="pearson")
+    cka = CenteredKernelAlignment()
     feature_rsa = float(rsa(dataset.X_test, y_test_arr))
     feature_cka = float(cka(dataset.X_test, y_test_arr))
     encoding_rsa = float(rsa(y_pred, y_test_arr))
@@ -275,15 +276,20 @@ def main():
             best = best_layer_entry(single_results)
             best_layer = best["layer"]
             fixed_alpha = best["best_alpha"]
+            n_units = best["n_units"]
+
+            # Build rank list: full-rank baseline + n_units + fixed low-rank values
+            ranks = [30000, n_units] + FIXED_RANKS
 
             print(f"  Best layer  : {best_layer}  (R²={best['r2_mean']:.4f})")
             print(f"  Fixed alpha : {fixed_alpha}")
-            print(f"  Ranks       : {RANKS}  (rank=30000 loaded from existing results)")
+            print(f"  n_units     : {n_units}")
+            print(f"  Ranks       : {ranks}  (rank=30000 loaded from existing results)")
 
             out_json = output_dir / f"{model_alias}_things_stimuli_TVSD_{roi}_rank_sweep_results.json"
             all_results: list[dict] = []
 
-            for rank in RANKS:
+            for rank in ranks:
                 if rank == 30000:
                     # Full-rank baseline — already trained, no re-training needed
                     entry = full_rank_entry(best)

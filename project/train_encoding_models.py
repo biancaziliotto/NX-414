@@ -230,8 +230,8 @@ def train_layer_encoder(model_name, dataset_name, neural_dataset_name, roi, laye
     all_metrics = compute_all_metrics(y_test, y_pred)
     
     # Compute representational metrics (RSA and CKA)
-    rsa = RepresentationalSimilarityAnalysis(metric='pearson')
-    cka = CenteredKernelAlignment(unbiased=True)
+    rsa = RepresentationalSimilarityAnalysis(similarity_metric='pearson')
+    cka = CenteredKernelAlignment()
     
     X_test = dataset.X_test
     feature_rsa = float(rsa(X_test, y_test))

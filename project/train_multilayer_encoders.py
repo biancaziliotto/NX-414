@@ -165,8 +165,8 @@ def train_fixed_alpha(
     mse_list = [mean_squared_error(y_test_arr[:, i], y_pred[:, i]) for i in range(y_test_arr.shape[1])]
     all_metrics = compute_all_metrics(y_test_arr, y_pred)
 
-    rsa = RepresentationalSimilarityAnalysis(metric="pearson")
-    cka = CenteredKernelAlignment(unbiased=True)
+    rsa = RepresentationalSimilarityAnalysis(similarity_metric="pearson")
+    cka = CenteredKernelAlignment()
     X_test = dataset.X_test
     feature_rsa = float(rsa(X_test, y_test_arr))
     feature_cka = float(cka(X_test, y_test_arr))
