@@ -146,9 +146,26 @@ class LinearRegressionModel(nn.Module):
     def __init__(self, n_features, n_outputs):
         super().__init__()
         self.linear = nn.Linear(n_features, n_outputs)
-    
+
     def forward(self, x):
         return self.linear(x)
+
+
+class LowRankLinearModel(nn.Module):
+    """
+    Low-rank linear regression: ŷ = U(Vx) + b
+    W = U @ V ∈ R^{n_outputs × n_features}, rank r ≪ min(n_outputs, n_features).
+    V ∈ R^{r × n_features} projects input to the low-rank subspace;
+    U ∈ R^{n_outputs × r} maps back to output space.
+    L2 regularization on U and V is equivalent to nuclear-norm regularization on W.
+    """
+    def __init__(self, n_features, n_outputs, rank):
+        super().__init__()
+        self.V = nn.Linear(n_features, rank, bias=False)
+        self.U = nn.Linear(rank, n_outputs, bias=True)
+
+    def forward(self, x):
+        return self.U(self.V(x))
 
 
 class SGDEncoder():
@@ -156,8 +173,8 @@ class SGDEncoder():
     Linear Encoding Model using PyTorch with GPU acceleration.
     Supports multi-output regression for multiple neural units.
     """
-    def __init__(self, alpha=0.0001, max_iter=500, min_iter=10, batch_size=32, learning_rate=0.001, 
-                 early_stopping_patience=10, early_stopping_tol=1e-6, random_state=42):
+    def __init__(self, alpha=0.0001, max_iter=500, min_iter=10, batch_size=32, learning_rate=0.001,
+                 early_stopping_patience=10, early_stopping_tol=1e-6, random_state=42, rank=None):
         """
         Initializes the SGDEncoder with GPU support.
 
@@ -170,6 +187,8 @@ class SGDEncoder():
         early_stopping_patience (int): Number of epochs with no improvement to stop training (default: 10).
         early_stopping_tol (float): Tolerance for improvement detection (default: 1e-6).
         random_state (int): Random seed for reproducibility.
+        rank (int or None): If set, uses a low-rank factorization W = U @ V with U ∈ R^{k×r},
+                            V ∈ R^{r×d}. None means full-rank (default behaviour).
         """
         self.alpha = alpha
         self.max_iter = max_iter
@@ -179,6 +198,7 @@ class SGDEncoder():
         self.early_stopping_patience = early_stopping_patience
         self.early_stopping_tol = early_stopping_tol
         self.random_state = random_state
+        self.rank = rank
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = None
         self.best_alpha_ = None
@@ -192,8 +212,16 @@ class SGDEncoder():
             print("⚠ GPU not available, using CPU")
 
     def _create_model(self, n_features, n_outputs):
-        """Create a fresh model instance."""
-        model = LinearRegressionModel(n_features, n_outputs).to(self.device)
+        """Create a fresh model instance (full-rank or low-rank depending on self.rank)."""
+        if self.rank is not None:
+            # Warn when rank does not reduce effective dimensionality, but still proceed —
+            # the caller may intentionally fix rank=n_outputs so U stays square across k.
+            if self.rank > min(n_features, n_outputs):
+                print(f"  ⚠ rank={self.rank} > min(n_features={n_features}, n_outputs={n_outputs}); "
+                      f"low-rank adds parameters rather than saving them.")
+            model = LowRankLinearModel(n_features, n_outputs, self.rank).to(self.device)
+        else:
+            model = LinearRegressionModel(n_features, n_outputs).to(self.device)
         return model
 
     def fit(self, X, y, batch_size=None, verbose=False):
