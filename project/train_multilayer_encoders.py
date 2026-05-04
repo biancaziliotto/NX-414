@@ -233,6 +233,8 @@ def main():
     parser.add_argument("--tolerance", type=float, default=1e-4)
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
+    parser.add_argument("--rank", type=int, default=None,
+                        help="Low-rank bottleneck for W=UV. Defaults to n_units (full output rank).")
     parser.add_argument("--max-layers", type=int, default=10,
                         help="Maximum number of layers to combine (default: 10)")
     parser.add_argument("--verbose", action="store_true", default=True)
@@ -262,10 +264,8 @@ def main():
             ranked = sorted_layers_by_r2(single_results)
             n_total = min(len(ranked), args.max_layers)
 
-            # rank = n_units: U ∈ R^{n_units × n_units} stays identical across all k;
-            # only V grows from (n_units × d) to (n_units × k*d) as more layers are added.
             n_units = single_results[0]["y_train_shape"][1]
-            low_rank = n_units
+            low_rank = args.rank if args.rank is not None else n_units
 
             # Fixed alpha = alpha of the best single layer
             fixed_alpha = ranked[0][1]
@@ -274,7 +274,7 @@ def main():
             for pos, (layer, alpha) in enumerate(ranked[:n_total], 1):
                 print(f"    {pos:2d}. {layer:<40s}  alpha={alpha}")
             print(f"  Fixed alpha : {fixed_alpha} (from best layer: {ranked[0][0]})")
-            print(f"  Fixed rank  : {low_rank}  (= n_units; U shape constant across k)")
+            print(f"  Fixed rank  : {low_rank}")
 
             out_json = output_dir / f"{model_alias}_things_stimuli_TVSD_{roi}_multilayer_results.json"
             all_results: list[dict] = []
