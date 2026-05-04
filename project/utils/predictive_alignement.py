@@ -213,14 +213,12 @@ class SGDEncoder():
 
     def _create_model(self, n_features, n_outputs):
         """Create a fresh model instance (full-rank or low-rank depending on self.rank)."""
-        if self.rank is not None:
-            # Warn when rank does not reduce effective dimensionality, but still proceed —
-            # the caller may intentionally fix rank=n_outputs so U stays square across k.
-            if self.rank > min(n_features, n_outputs):
-                print(f"  ⚠ rank={self.rank} > min(n_features={n_features}, n_outputs={n_outputs}); "
-                      f"low-rank adds parameters rather than saving them.")
+        if self.rank is not None and self.rank < min(n_features, n_outputs):
             model = LowRankLinearModel(n_features, n_outputs, self.rank).to(self.device)
         else:
+            if self.rank is not None:
+                print(f"  ⚠ rank={self.rank} >= min(n_features={n_features}, n_outputs={n_outputs}); "
+                      f"falling back to full-rank LinearRegressionModel.")
             model = LinearRegressionModel(n_features, n_outputs).to(self.device)
         return model
 
