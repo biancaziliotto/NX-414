@@ -43,7 +43,7 @@ DATASET = "things_stimuli"
 SUBJECT = "monkeyF"
 # Ranks tried per (model, ROI). 30000 = full-rank baseline (loaded from existing
 # results, not re-trained). n_units is substituted at runtime from the data.
-FIXED_RANKS = [20, 10, 8, 6, 4]  # low-rank values, same for all ROIs
+FIXED_RANKS = [100, 10, 3]  # low-rank values, same for all ROIs
 
 
 class _NumpyEncoder(json.JSONEncoder):
