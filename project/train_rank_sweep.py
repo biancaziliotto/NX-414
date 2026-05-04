@@ -84,7 +84,7 @@ def train_low_rank(
     roi: str,
     layer_name: str,
     fixed_alpha: float,
-    rank: int,
+    rank: int | None,
     subject: str = SUBJECT,
     max_epochs: int = 1000,
     min_epochs: int = 20,
@@ -250,10 +250,12 @@ def main():
     parser.add_argument("--output-dir", type=str, default="./results")
     parser.add_argument("--max-epochs", type=int, default=1000)
     parser.add_argument("--min-epochs", type=int, default=20)
-    parser.add_argument("--patience", type=int, default=10)
-    parser.add_argument("--tolerance", type=float, default=1e-4)
+    parser.add_argument("--patience", type=int, default=20)
+    parser.add_argument("--tolerance", type=float, default=1e-3)
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
+    parser.add_argument("--recompute", action="store_true",
+                        help="Train full-rank model fresh instead of loading from existing results")
     parser.add_argument("--quiet", action="store_true", help="Suppress per-rank output")
     args = parser.parse_args()
 
@@ -282,14 +284,14 @@ def main():
             print(f"  Best layer  : {best_layer}  (R²={best['r2_mean']:.4f})")
             print(f"  n_units     : {best['n_units']}")
             print(f"  Fixed alpha : {fixed_alpha}")
-            print(f"  Ranks       : {ranks}  (rank=30000 loaded from existing results)")
+            full_rank_label = "recomputed" if args.recompute else "loaded from existing results"
+            print(f"  Ranks       : {ranks}  (rank=30000 {full_rank_label})")
 
             out_json = output_dir / f"{model_alias}_things_stimuli_TVSD_{roi}_rank_sweep_results.json"
             all_results: list[dict] = []
 
             for rank in ranks:
-                if rank == 30000:
-                    # Full-rank baseline — already trained, no re-training needed
+                if rank == 30000 and not args.recompute:
                     entry = full_rank_entry(best)
                     if verbose:
                         print(f"\n  rank={rank:>6d}  [full-rank, loaded]  "
@@ -304,7 +306,7 @@ def main():
                             roi=roi,
                             layer_name=best_layer,
                             fixed_alpha=fixed_alpha,
-                            rank=rank,
+                            rank=None if rank == 30000 else rank,
                             subject=SUBJECT,
                             max_epochs=args.max_epochs,
                             min_epochs=args.min_epochs,
@@ -314,6 +316,9 @@ def main():
                             learning_rate=args.learning_rate,
                             verbose=verbose,
                         )
+                        if rank == 30000:
+                            entry["rank"] = 30000
+                            entry["model_type"] = "full_rank"
                     except Exception as exc:
                         print(f"  [ERROR] rank={rank}: {exc}", file=sys.stderr)
                         continue
