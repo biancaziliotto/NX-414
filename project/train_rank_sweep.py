@@ -253,7 +253,7 @@ def main():
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--tolerance", type=float, default=1e-3)
     parser.add_argument("--batch-size", type=int, default=2048)
-    parser.add_argument("--learning-rate", type=float, default=1e-4)
+    parser.add_argument("--learning-rate", type=float, default=5e-4)
     parser.add_argument("--recompute", action="store_true",
                         help="Train full-rank model fresh instead of loading from existing results")
     parser.add_argument("--quiet", action="store_true", help="Suppress per-rank output")

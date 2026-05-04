@@ -232,7 +232,7 @@ def main():
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--tolerance", type=float, default=1e-3)
     parser.add_argument("--batch-size", type=int, default=2048)
-    parser.add_argument("--learning-rate", type=float, default=1e-4)
+    parser.add_argument("--learning-rate", type=float, default=5e-4)
     parser.add_argument("--rank", type=int, default=20,
                         help="Low-rank bottleneck for W=UV. Defaults to n_units (full output rank).")
     parser.add_argument("--max-layers", type=int, default=10,
