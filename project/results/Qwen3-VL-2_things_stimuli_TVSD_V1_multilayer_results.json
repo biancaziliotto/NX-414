@@ -1,0 +1,143 @@
+[
+  {
+    "n_layers": 1,
+    "layers": [
+      "visual-blocks-2"
+    ],
+    "layer": "top-1 [visual-blocks-2]",
+    "fixed_alpha": 0.01,
+    "rank": 20,
+    "model": "Qwen3-VL-2B-Instruct",
+    "dataset": "things_stimuli",
+    "roi": "V1",
+    "subject": "monkeyF",
+    "X_train_shape": [
+      22248,
+      30000
+    ],
+    "X_test_shape": [
+      100,
+      30000
+    ],
+    "y_train_shape": [
+      22248,
+      462
+    ],
+    "y_test_shape": [
+      100,
+      462
+    ],
+    "r2_mean": 0.5586427836081508,
+    "r2_std": 0.1344023999668802,
+    "r2_median": 0.5551919619161645,
+    "r2_min": 0.10835528044397691,
+    "r2_max": 0.8271235405856008,
+    "mse_mean": 0.045731806113263974,
+    "mse_std": 0.042026008468044745,
+    "pearson_corr_mean": 0.7509528696880178,
+    "pearson_corr_std": 0.09220677223128863,
+    "pearson_corr_median": 0.7564912612023347,
+    "pearson_corr_min": 0.3696664484680813,
+    "pearson_corr_max": 0.9133981703206986,
+    "explained_var_mean": 0.5631385698176772,
+    "explained_var_std": 0.1336125698916142,
+    "explained_var_median": 0.5603421621440846,
+    "explained_var_min": 0.10903758865476731,
+    "explained_var_max": 0.8272054907053323,
+    "noise_corrected_pearson_mean": 0.8145227491082766,
+    "noise_corrected_pearson_std": 0.10001228657056997,
+    "noise_corrected_pearson_median": 0.8205299781421753,
+    "noise_corrected_pearson_min": 0.4009595595318877,
+    "noise_corrected_pearson_max": 0.9907194162919601,
+    "noise_corrected_ev_mean": 0.6625159644913852,
+    "noise_corrected_ev_std": 0.15719125869601674,
+    "noise_corrected_ev_median": 0.6592260731106878,
+    "noise_corrected_ev_min": 0.12827951606443214,
+    "noise_corrected_ev_max": 0.9731829302415674,
+    "noise_ceiling_mean": 0.8499999999999996,
+    "feature_rsa": 0.16813558946721083,
+    "feature_cka": 0.1787569164161016,
+    "encoding_rsa": 0.6750618569520815,
+    "encoding_cka": 0.8452885877627917,
+    "n_units": 462,
+    "timings": {
+      "data_loading": 0.511674165725708,
+      "dataset_creation": 9.591559171676636,
+      "training_and_evaluation": 300.7902171611786,
+      "metrics_calculation": 1.2240982055664062,
+      "total": 312.13527822494507
+    },
+    "weights_file": "encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/V1/monkeyF/top1_layers.pth"
+  },
+  {
+    "n_layers": 2,
+    "layers": [
+      "visual-blocks-2",
+      "visual-blocks-6"
+    ],
+    "layer": "top-2 [visual-blocks-2+visual-blocks-6]",
+    "fixed_alpha": 0.01,
+    "rank": 20,
+    "model": "Qwen3-VL-2B-Instruct",
+    "dataset": "things_stimuli",
+    "roi": "V1",
+    "subject": "monkeyF",
+    "X_train_shape": [
+      22248,
+      60000
+    ],
+    "X_test_shape": [
+      100,
+      60000
+    ],
+    "y_train_shape": [
+      22248,
+      462
+    ],
+    "y_test_shape": [
+      100,
+      462
+    ],
+    "r2_mean": 0.574828888230949,
+    "r2_std": 0.13184123046507462,
+    "r2_median": 0.5801576494068935,
+    "r2_min": 0.08615628412442045,
+    "r2_max": 0.8286662494914704,
+    "mse_mean": 0.0432824757860901,
+    "mse_std": 0.03861778846910157,
+    "pearson_corr_mean": 0.7593600654773497,
+    "pearson_corr_std": 0.08800204785587323,
+    "pearson_corr_median": 0.7692316315623403,
+    "pearson_corr_min": 0.3835712993035995,
+    "pearson_corr_max": 0.9133676657142481,
+    "explained_var_mean": 0.5786178241400395,
+    "explained_var_std": 0.13126129783844342,
+    "explained_var_median": 0.5842053586238071,
+    "explained_var_min": 0.08881823935208077,
+    "explained_var_max": 0.8289415367537778,
+    "noise_corrected_pearson_mean": 0.8236416332660307,
+    "noise_corrected_pearson_std": 0.09545162265176935,
+    "noise_corrected_pearson_median": 0.8343488500170516,
+    "noise_corrected_pearson_min": 0.41604148782013317,
+    "noise_corrected_pearson_max": 0.9906863294007457,
+    "noise_corrected_ev_mean": 0.680726851929458,
+    "noise_corrected_ev_std": 0.1544250562805217,
+    "noise_corrected_ev_median": 0.6873004219103613,
+    "noise_corrected_ev_min": 0.10449204629656562,
+    "noise_corrected_ev_max": 0.9752253373573857,
+    "noise_ceiling_mean": 0.8499999999999996,
+    "feature_rsa": 0.1668749845108433,
+    "feature_cka": 0.1766648560048782,
+    "encoding_rsa": 0.701901373421022,
+    "encoding_cka": 0.8528862497214063,
+    "n_units": 462,
+    "timings": {
+      "data_loading": 0.4127645492553711,
+      "dataset_creation": 19.239113807678223,
+      "training_and_evaluation": 429.7428855895996,
+      "metrics_calculation": 1.3204660415649414,
+      "total": 450.7368519306183
+    },
+    "weights_file": "encoders/Qwen3-VL-2B-Instruct/things_stimuli/TVSD/V1/monkeyF/top2_layers.pth"
+  }
+]

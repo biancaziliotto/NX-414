@@ -1,0 +1,143 @@
+[
+  {
+    "n_layers": 1,
+    "layers": [
+      "layer3-25"
+    ],
+    "layer": "top-1 [layer3-25]",
+    "fixed_alpha": 0.1,
+    "rank": 20,
+    "model": "adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0",
+    "dataset": "things_stimuli",
+    "roi": "IT",
+    "subject": "monkeyF",
+    "X_train_shape": [
+      22248,
+      30000
+    ],
+    "X_test_shape": [
+      100,
+      30000
+    ],
+    "y_train_shape": [
+      22248,
+      241
+    ],
+    "y_test_shape": [
+      100,
+      241
+    ],
+    "r2_mean": 0.21047313267699033,
+    "r2_std": 0.15536848276653142,
+    "r2_median": 0.1957631357878039,
+    "r2_min": -0.1619083489958446,
+    "r2_max": 0.5510942311643283,
+    "mse_mean": 0.059694226929162514,
+    "mse_std": 0.050254753074001186,
+    "pearson_corr_mean": 0.5180466967204328,
+    "pearson_corr_std": 0.18554104964929072,
+    "pearson_corr_median": 0.553394328160406,
+    "pearson_corr_min": 0.04055554017849368,
+    "pearson_corr_max": 0.8305916805682855,
+    "explained_var_mean": 0.2348981903294767,
+    "explained_var_std": 0.14625611388253137,
+    "explained_var_median": 0.23070851253535363,
+    "explained_var_min": -0.007716404569175994,
+    "explained_var_max": 0.5675590582720714,
+    "noise_corrected_pearson_mean": 0.5619005354550299,
+    "noise_corrected_pearson_std": 0.20124752422287323,
+    "noise_corrected_pearson_median": 0.6002404248104226,
+    "noise_corrected_pearson_min": 0.04398865949001769,
+    "noise_corrected_pearson_max": 0.9009031676302259,
+    "noise_corrected_ev_mean": 0.27640763774009675,
+    "noise_corrected_ev_std": 0.17197358513683564,
+    "noise_corrected_ev_median": 0.2714217794533572,
+    "noise_corrected_ev_min": 0.0,
+    "noise_corrected_ev_max": 0.6677165391436135,
+    "noise_ceiling_mean": 0.8499999999999998,
+    "feature_rsa": 0.37267871846423783,
+    "feature_cka": 0.30051142286696086,
+    "encoding_rsa": 0.4959125324581945,
+    "encoding_cka": 0.5972340805385913,
+    "n_units": 241,
+    "timings": {
+      "data_loading": 0.34911608695983887,
+      "dataset_creation": 8.8893883228302,
+      "training_and_evaluation": 246.20095944404602,
+      "metrics_calculation": 0.6661791801452637,
+      "total": 256.1224992275238
+    },
+    "weights_file": "encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/things_stimuli/TVSD/IT/monkeyF/top1_layers.pth"
+  },
+  {
+    "n_layers": 2,
+    "layers": [
+      "layer3-25",
+      "layer3-15"
+    ],
+    "layer": "top-2 [layer3-25+layer3-15]",
+    "fixed_alpha": 0.1,
+    "rank": 20,
+    "model": "adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0",
+    "dataset": "things_stimuli",
+    "roi": "IT",
+    "subject": "monkeyF",
+    "X_train_shape": [
+      22248,
+      60000
+    ],
+    "X_test_shape": [
+      100,
+      60000
+    ],
+    "y_train_shape": [
+      22248,
+      241
+    ],
+    "y_test_shape": [
+      100,
+      241
+    ],
+    "r2_mean": 0.28311370307580497,
+    "r2_std": 0.1761237962663591,
+    "r2_median": 0.28227875607294795,
+    "r2_min": -0.15282036352628836,
+    "r2_max": 0.6588520509721667,
+    "mse_mean": 0.054528209101429824,
+    "mse_std": 0.04724450153681961,
+    "pearson_corr_mean": 0.5737827632798036,
+    "pearson_corr_std": 0.17191061950040146,
+    "pearson_corr_median": 0.60172409513246,
+    "pearson_corr_min": 0.11930035475173006,
+    "pearson_corr_max": 0.8531612893257138,
+    "explained_var_mean": 0.3072928864247703,
+    "explained_var_std": 0.1671427467832716,
+    "explained_var_median": 0.30973328000353806,
+    "explained_var_min": 0.009595004675304386,
+    "explained_var_max": 0.661272456893113,
+    "noise_corrected_pearson_mean": 0.6223547876337071,
+    "noise_corrected_pearson_std": 0.18646324696055444,
+    "noise_corrected_pearson_median": 0.6526614171880057,
+    "noise_corrected_pearson_min": 0.1293994028711045,
+    "noise_corrected_pearson_max": 0.9253833454329103,
+    "noise_corrected_ev_mean": 0.3615210428526711,
+    "noise_corrected_ev_std": 0.19663852562737838,
+    "noise_corrected_ev_median": 0.3643920941218095,
+    "noise_corrected_ev_min": 0.011288240794475749,
+    "noise_corrected_ev_max": 0.7779675963448388,
+    "noise_ceiling_mean": 0.8499999999999998,
+    "feature_rsa": 0.3681418920977183,
+    "feature_cka": 0.2927441461105523,
+    "encoding_rsa": 0.5538725084975584,
+    "encoding_cka": 0.6482894444198686,
+    "n_units": 241,
+    "timings": {
+      "data_loading": 0.36254262924194336,
+      "dataset_creation": 18.625713109970093,
+      "training_and_evaluation": 423.46924591064453,
+      "metrics_calculation": 0.7838242053985596,
+      "total": 443.26258659362793
+    },
+    "weights_file": "encoders/adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0/things_stimuli/TVSD/IT/monkeyF/top2_layers.pth"
+  }
+]

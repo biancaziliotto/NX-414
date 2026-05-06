@@ -34,8 +34,8 @@ from utils.alignement_utils import RepresentationalSimilarityAnalysis, CenteredK
 # Fixed configuration
 # ---------------------------------------------------------------------------
 MODELS = {
-    "adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0": "adv_resnet",
     "Qwen3-VL-2B-Instruct": "Qwen3-VL-2",
+    "adv_resnet152_imagenet_full_ffgsm_eps-1_alpha-125-ep10_seed-0": "adv_resnet",
 }
 ROIS = ["V1", "V4", "IT"]
 NEURAL_DATASET = "TVSD"
@@ -43,7 +43,7 @@ DATASET = "things_stimuli"
 SUBJECT = "monkeyF"
 # Ranks tried per (model, ROI). 30000 = full-rank baseline (loaded from existing
 # results, not re-trained). n_units is substituted at runtime from the data.
-FIXED_RANKS = [100, 10, 3]  # low-rank values, same for all ROIs
+FIXED_RANKS = [1000, 100, 10, 3, 1]  # low-rank values, same for all ROIs
 
 
 class _NumpyEncoder(json.JSONEncoder):
@@ -252,7 +252,7 @@ def main():
     parser.add_argument("--min-epochs", type=int, default=20)
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--tolerance", type=float, default=1e-3)
-    parser.add_argument("--batch-size", type=int, default=2048)
+    parser.add_argument("--batch-size", type=int, default=12)
     parser.add_argument("--learning-rate", type=float, default=5e-4)
     parser.add_argument("--recompute", action="store_true",
                         help="Train full-rank model fresh instead of loading from existing results")

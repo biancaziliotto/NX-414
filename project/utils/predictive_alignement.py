@@ -303,7 +303,7 @@ class SGDEncoder():
             else:
                 best_loss = min(best_loss, avg_loss)
             
-            if verbose and (epoch + 1) % max(1, self.max_iter // 50) == 0:
+            if (epoch + 1) % max(1, self.max_iter // 50) == 0:
                 print(f"  Epoch {epoch + 1}/{self.max_iter}, Loss: {avg_loss:.6f}")
             
             # Stop if converged (only after min_iter epochs)
