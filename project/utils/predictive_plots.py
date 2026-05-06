@@ -146,6 +146,7 @@ def plot_layerwise(
     metrics: list = None,
     title_prefix: str = "",
     save_path: str = None,
+    noise_ceilings: dict = None,
 ) -> plt.Figure:
     """
     Layer-wise predictive alignment scores for all models on a single target.
@@ -167,6 +168,9 @@ def plot_layerwise(
         Prepended to each subplot title.
     save_path : str, optional
         If provided, saves the figure here.
+    noise_ceilings : dict, optional
+        Mapping ``(neural_dataset, target, metric) -> float`` upper-bound
+        value. A dashed horizontal line is drawn on matching subplots.
     """
     if metrics is None:
         metrics = [m for m in DEFAULT_METRICS if m in df["metric"].unique()]
@@ -192,6 +196,11 @@ def plot_layerwise(
             grp = sub[(sub["model"] == model) & (sub["metric"] == metric)]
             scores = grp.set_index("layer").reindex(lo)["score"].values
             ax.plot(range(len(lo)), scores, marker="o", label=model)
+        if noise_ceilings:
+            nc_val = noise_ceilings.get((neural_dataset, target, metric))
+            if nc_val is not None:
+                ax.axhline(nc_val, color="k", linestyle="--", linewidth=1.2,
+                           label="noise ceiling", alpha=0.7)
         ax.set_xticks(range(n_layers))
         ax.set_xticklabels(
             layer_orders[models[0]] if len(models) == 1
@@ -225,6 +234,7 @@ def plot_roi_alignment(
     roi_order: list = None,
     title_prefix: str = "",
     save_path: str = None,
+    noise_ceilings: dict = None,
 ) -> plt.Figure:
     """
     Layer-wise predictive scores across brain ROIs for a single model.
@@ -243,6 +253,9 @@ def plot_roi_alignment(
         Explicit ROI ordering. Defaults to unique targets in df.
     title_prefix : str
     save_path : str, optional
+    noise_ceilings : dict, optional
+        Mapping ``(neural_dataset, target, metric) -> float``.
+        One hline per ROI is drawn on matching metric subplots.
     """
     if metrics is None:
         metrics = [m for m in DEFAULT_METRICS if m in df["metric"].unique()]
@@ -264,6 +277,12 @@ def plot_roi_alignment(
             grp = metric_sub[metric_sub["target"] == roi]
             scores = grp.set_index("layer").reindex(layer_order)["score"].values
             ax.plot(range(len(layer_order)), scores, marker="o", label=roi)
+        if noise_ceilings:
+            for roi in roi_order:
+                nc_val = noise_ceilings.get((neural_dataset, roi, metric))
+                if nc_val is not None:
+                    ax.axhline(nc_val, linestyle="--", linewidth=1, alpha=0.5,
+                               label=f"NC {roi}")
         ax.set_xticks(range(len(layer_order)))
         ax.set_xticklabels(layer_order, rotation=45, ha="right", fontsize=7)
         prefix = f"{title_prefix}, " if title_prefix else ""
@@ -292,6 +311,7 @@ def plot_model_comparison(
     metrics: list = None,
     title_prefix: str = "",
     save_path: str = None,
+    noise_ceilings: dict = None,
 ) -> plt.Figure:
     """
     Grouped bar chart comparing best-layer scores across models and ROIs.
@@ -311,6 +331,10 @@ def plot_model_comparison(
         Metrics to show. Defaults to DEFAULT_METRICS.
     title_prefix : str
     save_path : str, optional
+    noise_ceilings : dict, optional
+        Mapping ``(neural_dataset, target, metric) -> float``.
+        Scatter markers are drawn at each ROI's noise ceiling on matching
+        metric subplots.
     """
     if metrics is None:
         metrics = [m for m in DEFAULT_METRICS if m in df["metric"].unique()]
@@ -342,6 +366,12 @@ def plot_model_comparison(
                 scores.append(float(row["score"].values[0]) if len(row) else np.nan)
             offset = (i - (len(models) - 1) / 2) * width
             ax.bar(x + offset, scores, width, label=model)
+        if noise_ceilings:
+            nc_vals = [noise_ceilings.get((neural_dataset, t, metric)) for t in targets]
+            if any(v is not None for v in nc_vals):
+                nc_y = [v if v is not None else np.nan for v in nc_vals]
+                ax.scatter(x, nc_y, marker="_", color="k", s=200, linewidths=2,
+                           zorder=5, label="noise ceiling")
         ax.set_xticks(x)
         ax.set_xticklabels(targets)
         prefix = f"{title_prefix}, " if title_prefix else ""

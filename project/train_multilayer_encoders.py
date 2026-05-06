@@ -5,9 +5,11 @@ Train multi-layer linear encoding models on the TVSD dataset.
 For each (model, ROI) combination this script:
   1. Loads the existing single-layer results to rank layers by R² and retrieve
      the alpha that was already selected during cross-validation.
-  2. Trains models with top-1, top-2, ..., top-N layers (N = total layers found,
-     up to 10) by concatenating their activations, using that fixed alpha — no
-     additional hyperparameter search is performed.
+  2. Trains models with top-1, top-2, ..., top-N layers by concatenating their
+     activations, using that fixed alpha — no additional HP search is performed.
+
+The readout can be full-rank (--rank not set) or low-rank (--rank R).
+Output filenames include the rank so different runs don't overwrite each other.
 
 Supported models : adv_resnet, Qwen3-VL-2B-Instruct
 ROIs             : V1, V4, IT
@@ -85,8 +87,9 @@ def train_fixed_alpha(
     roi: str,
     layer_names: list[str],
     fixed_alpha: float,
-    rank: int,
+    rank: int | None,
     subject: str = SUBJECT,
+    data_root: str | None = None,
     max_epochs: int = 1000,
     min_epochs: int = 20,
     patience: int = 10,
@@ -96,10 +99,8 @@ def train_fixed_alpha(
     verbose: bool = True,
 ) -> dict:
     """
-    Train a low-rank linear encoder on concatenated activations of `layer_names`,
-    using a fixed pre-selected `alpha` and a fixed bottleneck `rank`.
-    No hyperparameter search is performed.
-    `rank` is set to n_units so U ∈ R^{n_units × n_units} stays identical across all k.
+    Train a linear encoder on concatenated activations of `layer_names`.
+    rank=None → full-rank readout; rank=R → low-rank factorisation W=UV.
     """
     k = len(layer_names)
     layer_tag = f"top{k}_layers"
@@ -115,8 +116,8 @@ def train_fixed_alpha(
 
     # ---- Load neural data ------------------------------------------------
     t0 = time.time()
-    y_train, stimuli_train = load_tsvd_dataset(split="train", subject=subject, roi=roi)
-    y_test, stimuli_test = load_tsvd_dataset(split="test", subject=subject, roi=roi)
+    y_train, stimuli_train = load_tsvd_dataset(split="train", subject=subject, roi=roi, data_root=data_root)
+    y_test, stimuli_test = load_tsvd_dataset(split="test", subject=subject, roi=roi, data_root=data_root)
     timings["data_loading"] = time.time() - t0
 
     # ---- Build dataset (loads + concatenates activations) ----------------
@@ -126,6 +127,7 @@ def train_fixed_alpha(
         stimuli_train=stimuli_train, stimuli_test=stimuli_test,
         model_name=model_name, dataset_name=dataset_name,
         layer_name=layer_names,
+        data_root=data_root,
     )
     timings["dataset_creation"] = time.time() - t0
 
@@ -223,6 +225,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="Train top-k multi-layer encoders using pre-selected alphas (TVSD)."
     )
+    parser.add_argument("--data-root", type=str, default=None,
+                        help="Root directory containing data/ and extracted_features/ "
+                             "(default: $NX414_DATA_ROOT or /shared/NX-414)")
     parser.add_argument("--results-dir", type=str, default="./results",
                         help="Directory containing single-layer results JSONs (default: ./results)")
     parser.add_argument("--output-dir", type=str, default="./results",
@@ -233,10 +238,10 @@ def main():
     parser.add_argument("--tolerance", type=float, default=1e-3)
     parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--learning-rate", type=float, default=5e-4)
-    parser.add_argument("--rank", type=int, default=20,
-                        help="Low-rank bottleneck for W=UV. Defaults to n_units (full output rank).")
-    parser.add_argument("--max-layers", type=int, default=100,
-                        help="Maximum number of layers to combine (default: 10)")
+    parser.add_argument("--rank", type=int, default=None,
+                        help="Low-rank bottleneck for W=UV. If not set, uses full-rank readout.")
+    parser.add_argument("--max-layers", type=int, default=3,
+                        help="Maximum number of top layers to combine (default: 10)")
     parser.add_argument("--verbose", action="store_true", default=True)
     parser.add_argument("--quiet", action="store_true",
                         help="Suppress per-layer output")
@@ -264,22 +269,21 @@ def main():
             ranked = sorted_layers_by_r2(single_results)
             n_total = min(len(ranked), args.max_layers)
 
-            n_units = single_results[0]["y_train_shape"][1]
-            low_rank = args.rank if args.rank is not None else n_units
-
             # Fixed alpha = alpha of the best single layer
             fixed_alpha = ranked[0][1]
+
+            rank_tag = "fullrank" if args.rank is None else f"rank{args.rank}"
 
             print(f"  Layers ranked by R² (using top {n_total}):")
             for pos, (layer, alpha) in enumerate(ranked[:n_total], 1):
                 print(f"    {pos:2d}. {layer:<40s}  alpha={alpha}")
             print(f"  Fixed alpha : {fixed_alpha} (from best layer: {ranked[0][0]})")
-            print(f"  Fixed rank  : {low_rank}")
+            print(f"  Rank        : {args.rank if args.rank is not None else 'full-rank'}")
 
-            out_json = output_dir / f"{model_alias}_things_stimuli_TVSD_{roi}_multilayer_results.json"
+            out_json = output_dir / f"{model_alias}_things_stimuli_TVSD_{roi}_multilayer_{rank_tag}_results.json"
             all_results: list[dict] = []
 
-            for k in range(1,3):
+            for k in range(1, n_total + 1):
                 top_k = [layer for layer, _ in ranked[:k]]
                 try:
                     result = train_fixed_alpha(
@@ -288,8 +292,9 @@ def main():
                         roi=roi,
                         layer_names=top_k,
                         fixed_alpha=fixed_alpha,
-                        rank=low_rank,
+                        rank=args.rank,
                         subject=SUBJECT,
+                        data_root=args.data_root,
                         max_epochs=args.max_epochs,
                         min_epochs=args.min_epochs,
                         patience=args.patience,

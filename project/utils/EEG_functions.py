@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import h5py
 import numpy as np
 from scipy import stats
@@ -170,7 +172,8 @@ def compute_ceiling_splithalf(
 
 def compare_noise_ceilings(
     h5_path: str,
-    compute_fn
+    compute_fn,
+    test_reps_path: str = None,
 ):
     """
     Compare stored noise ceilings with a custom estimator using MSE.
@@ -206,7 +209,9 @@ def compare_noise_ceilings(
                 ref = np.asarray(f["noise_ceilings"][subj][region])  # (channels, time)
 
                 # --- Load neural data ---
-                data = np.asarray(h5py.File('/shared/NX-414/data/things_eeg2-test_reps.h5', 'r')["test"]["neural_data"][subj][region])
+                if test_reps_path is None:
+                    test_reps_path = str(Path(h5_path).parent / "things_eeg2-test_reps.h5")
+                data = np.asarray(h5py.File(test_reps_path, 'r')["test"]["neural_data"][subj][region])
                 print(data.shape)
                 # --- Ensure correct shape ---
                 # Expected: (channels, time, stimuli, reps)

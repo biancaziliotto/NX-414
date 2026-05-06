@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -8,13 +9,15 @@ from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.preprocessing import StandardScaler
 import h5py
 
+DATA_ROOT = os.environ.get("NX414_DATA_ROOT", "/shared/NX-414")
+
 class ModelBrainDataset():
     """
     Dataset class for handling model-based encoding tasks.
     Loads model activations for given stimuli and pairs them with neural responses.
     Assumes train and test sets are already separated.
     """
-    def __init__(self, y_train, y_test, stimuli_train, stimuli_test, model_name, dataset_name, layer_name):
+    def __init__(self, y_train, y_test, stimuli_train, stimuli_test, model_name, dataset_name, layer_name, data_root=None):
         """
         Initializes the dataset by loading model activations for provided stimuli.
 
@@ -26,7 +29,9 @@ class ModelBrainDataset():
         model_name (str): Name of the model (used to locate activations).
         dataset_name (str): Name of the dataset (used to locate activations).
         layer_name (str or list): Name(s) of layer(s). If list with >1 layers, concatenates activations.
+        data_root (str): Root directory containing data/ and extracted_features/.
         """
+        root = data_root or DATA_ROOT
         self.y_train = y_train
         self.y_test = y_test
         self.stimuli_train = stimuli_train
@@ -34,7 +39,7 @@ class ModelBrainDataset():
         self.model_name = model_name
         self.dataset_name = dataset_name
         self.layer_name = layer_name  # Store for reference
-        self.activations_path = f"/shared/NX-414/extracted_features/{model_name}/{dataset_name}.h5"
+        self.activations_path = os.path.join(root, "extracted_features", model_name, f"{dataset_name}.h5")
         
         # Load activations (handles both single layer string and list of layers)
         self.X_train = self._load_activations(stimuli_train, layer_name)

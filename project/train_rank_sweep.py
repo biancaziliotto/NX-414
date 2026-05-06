@@ -86,6 +86,7 @@ def train_low_rank(
     fixed_alpha: float,
     rank: int | None,
     subject: str = SUBJECT,
+    data_root: str | None = None,
     max_epochs: int = 1000,
     min_epochs: int = 20,
     patience: int = 10,
@@ -108,8 +109,8 @@ def train_low_rank(
 
     # ---- Neural data -------------------------------------------------------
     t0 = time.time()
-    y_train, stimuli_train = load_tsvd_dataset(split="train", subject=subject, roi=roi)
-    y_test, stimuli_test = load_tsvd_dataset(split="test", subject=subject, roi=roi)
+    y_train, stimuli_train = load_tsvd_dataset(split="train", subject=subject, roi=roi, data_root=data_root)
+    y_test, stimuli_test = load_tsvd_dataset(split="test", subject=subject, roi=roi, data_root=data_root)
     timings["data_loading"] = time.time() - t0
 
     # ---- Activations -------------------------------------------------------
@@ -119,6 +120,7 @@ def train_low_rank(
         stimuli_train=stimuli_train, stimuli_test=stimuli_test,
         model_name=model_name, dataset_name=dataset_name,
         layer_name=layer_name,
+        data_root=data_root,
     )
     timings["dataset_creation"] = time.time() - t0
 
@@ -246,6 +248,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="Rank-sweep encoding models on TVSD best layer per (model, ROI)."
     )
+    parser.add_argument("--data-root", type=str, default=None,
+                        help="Root directory containing data/ and extracted_features/ "
+                             "(default: $NX414_DATA_ROOT or /shared/NX-414)")
     parser.add_argument("--results-dir", type=str, default="./results")
     parser.add_argument("--output-dir", type=str, default="./results")
     parser.add_argument("--max-epochs", type=int, default=1000)
@@ -308,6 +313,7 @@ def main():
                             fixed_alpha=fixed_alpha,
                             rank=None if rank == 30000 else rank,
                             subject=SUBJECT,
+                            data_root=args.data_root,
                             max_epochs=args.max_epochs,
                             min_epochs=args.min_epochs,
                             patience=args.patience,

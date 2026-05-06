@@ -626,7 +626,7 @@ def load_nsd_test(nsd_path: str, subject: str = "subj01", rois: list = None):
         Subject-specific NSD integer stimulus IDs.
     """
     if rois is None:
-        rois = ["V1v", "hV4", "ventral"]
+        rois = ["V1v", "V2v", "V3v", "hV4", "FFA-1", "VWFA-1", "PPA", "OPA", "EBA"]
     with h5py.File(nsd_path, "r") as f:
         nsd_ids  = f[f"test/stimulus_ids/{subject}"][:]
         nsd_rois = {roi: f[f"test/neural_data/{subject}/{roi}"][:] for roi in rois}
@@ -913,7 +913,7 @@ def plot_layer_roi_heatmap(
                 if len(row) > 0:
                     mat[i, j] = row["score"].values[0]
 
-        im = ax.imshow(mat, aspect="auto", cmap="viridis", vmin=0)
+        im = ax.imshow(mat, aspect="auto", cmap="YlOrRd", vmin=0)
         ax.set_xticks(range(len(targets)))
         ax.set_xticklabels(targets, rotation=30, ha="right", fontsize=8)
         ax.set_yticks(range(len(layers)))

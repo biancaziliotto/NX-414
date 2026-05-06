@@ -22,6 +22,7 @@ def plot_ranking_comparison(
     metrics: list = None,
     title_prefix: str = "",
     save_path: str = None,
+    noise_ceilings: dict = None,
 ) -> plt.Figure:
     """
     Compare how different metrics rank layers for a given target/dataset.
@@ -83,6 +84,7 @@ def plot_ranking_comparison(
         # Plot curves for each model
         for model_name in models_list:
             model_data = metric_data[metric_data["model"] == model_name]
+            model_data = model_data.drop_duplicates(subset="layer", keep="first")
             layers = sort_layer_names(model_data["layer"].unique().tolist())
             scores = model_data.set_index("layer").reindex(layers)["score"].values
             ax.plot(range(len(layers)), scores, marker="o", label=model_name, linewidth=2)
@@ -101,6 +103,11 @@ def plot_ranking_comparison(
         title = f"{label}  [{neural_dataset} / {target}]"
         if title_prefix:
             title = f"{title_prefix}, " + title
+        if noise_ceilings:
+            nc_val = noise_ceilings.get((neural_dataset, target, metric))
+            if nc_val is not None:
+                ax.axhline(nc_val, color="k", linestyle="--", linewidth=1.2,
+                           label="noise ceiling", alpha=0.7)
         ax.set_title(title, fontsize=10, fontweight="bold")
         ax.legend(fontsize=9)
         ax.grid(True, alpha=0.3)
